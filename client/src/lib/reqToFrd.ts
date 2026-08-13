@@ -13,6 +13,7 @@ export interface DistributionListEntry {
 
 export interface ClarifyingQuestion { id: string; category: QuestionCategory; question: string; }
 export interface RetainedAnalysis { id: string; requirement: string; gapSummary: string; questions: ClarifyingQuestion[]; answers: Record<string, string>; }
+export interface GeneratedRequirementItem { id: string; requirement: string; markdown: string; }
 export interface DocumentMetadata {
   requestId: string;
   region: string;
@@ -69,6 +70,7 @@ export function updateDistributionEntry(entries: DistributionListEntry[], id: st
 export function beginNewRequirementCycle(metadata: DocumentMetadata) { return { metadata, requirement: "", questions: [] as ClarifyingQuestion[], answers: {} as Record<string, string>, markdown: "" }; }
 export function retainAnalysis(current: RetainedAnalysis[], next: RetainedAnalysis): RetainedAnalysis[] { return next.requirement.trim() && next.questions.length ? [...current, next] : current; }
 export function composeRequirementMarkdown(previousMarkdown: string, nextMarkdown: string, itemNumber: number) { return previousMarkdown ? `${previousMarkdown}\n\n---\n\n# Functional Requirement Item ${itemNumber}\n\n${nextMarkdown}` : nextMarkdown; }
+export function composeRequirementDocument(items: GeneratedRequirementItem[], fallbackMarkdown = "") { return items.reduce((document, item, index) => composeRequirementMarkdown(document, item.markdown, index + 1), fallbackMarkdown && !items.length ? fallbackMarkdown : ""); }
 export function createFreshDocumentState() { return { title: "Untitled FRD", metadata: defaultMetadata, requirement: "", questions: [] as ClarifyingQuestion[], answers: {} as Record<string, string>, markdown: "# Functional Requirement Document\n\nThe remaining FRD sections will appear after generation." }; }
 export function selectRequirementSample(label: string) { return requirementSamples.find(sample => sample.label === label)?.value ?? ""; }
 export function sanitizeFilename(title: string) { const safe = title.trim().replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80); return `${safe || "req-to-frd"}.docx`; }

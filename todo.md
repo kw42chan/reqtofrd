@@ -93,3 +93,10 @@
 - [x] Normalize LLM clarification output to exactly 3–5 questions with canonical q1–q5 identifiers before schema validation and generation.
 - [x] Guard the client generation payload against stale or oversized clarification lists.
 - [x] Add regression tests for malformed/oversized model questions and verify the fixed workflow.
+
+- [x] Merge generated retained requirement items into the composed FRD Markdown and Rendered Preview.
+- [x] Add retained-item assembly regression tests and verify the combined document preview.
+
+- [x] Verify the combined Rendered Preview after multiple completed requirement items are assembled through the focused composed-document and page-splitter regression assertion.
+
+- [x] Add a development-only multi-item preview fixture and capture the live Rendered Preview showing all completed requirement items together.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, requirementSamples, retainAnalysis, sanitizeFilename, selectRequirementSample, updateDistributionEntry } from "../client/src/lib/reqToFrd";
+import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, composeRequirementDocument, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, requirementSamples, retainAnalysis, sanitizeFilename, selectRequirementSample, updateDistributionEntry } from "../client/src/lib/reqToFrd";
 
 describe("ReqToFRD audit helpers", () => {
   it("sanitizes document titles into safe docx filenames", () => {
@@ -127,6 +127,25 @@ describe("ReqToFRD additive requirement workflow", () => {
     expect(composed).toContain("# FR-01\nOriginal");
     expect(composed).toContain("# Functional Requirement Item 2");
     expect(composed).toContain("# FR-02\nAdditional");
+  });
+
+  it("assembles every completed retained requirement into the rendered FRD", () => {
+    const document = composeRequirementDocument([
+      { id: "req-1", requirement: "First", markdown: "# Functional Requirements\n### FR-01\nFirst requirement" },
+      { id: "req-2", requirement: "Second", markdown: "# Functional Requirements\n### FR-02\nSecond requirement" },
+    ]);
+    expect(document).toContain("First requirement");
+    expect(document).toContain("# Functional Requirement Item 2");
+    expect(document).toContain("Second requirement");
+  });
+
+  it("exposes all completed retained requirement items to the preview page splitter", () => {
+    const document = composeRequirementDocument([
+      { id: "req-1", requirement: "First", markdown: "# Functional Requirements\n### FR-01\nFirst requirement" },
+      { id: "req-2", requirement: "Second", markdown: "# Functional Requirements\n### FR-02\nSecond requirement" },
+    ]);
+    const pages = splitFunctionalRequirementPages(document);
+    expect(pages.map(page => page.markdown)).toEqual(expect.arrayContaining([expect.stringContaining("First requirement"), expect.stringContaining("Second requirement")]));
   });
 
   it("creates an explicit fresh-document state for the top-left action", () => {
