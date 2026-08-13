@@ -62,6 +62,7 @@ export const requirementSamples = [
 ] as const;
 
 export function normalizeMarkdown(markdown: string) { return markdown.replace(/\r/g, "").replace(/```(?:markdown)?\s*/gi, "").replace(/\s*```$/g, "").trim(); }
+export function normalizeClarifyingQuestions(questions: Array<Pick<ClarifyingQuestion, "id" | "category" | "question">>): ClarifyingQuestion[] { return questions.slice(0, 5).map((question, index) => ({ ...question, id: `q${index + 1}` })); }
 export function canGenerate(status: WorkflowStatus, questionCount: number) { return questionCount >= 3 && questionCount <= 5 && (status === "Clarifying" || status === "Completed"); }
 export function addDistributionEntry(entries: DistributionListEntry[], id: string): DistributionListEntry[] { return [...entries, { id, department: "Requestor of Business", name: "", title: "", roleType: "Reviewer" }]; }
 export function updateDistributionEntry(entries: DistributionListEntry[], id: string, key: keyof DistributionListEntry, value: string): DistributionListEntry[] { return entries.map(entry => entry.id === id ? { ...entry, [key]: value } as DistributionListEntry : entry); }

@@ -89,3 +89,7 @@
 - [x] Capture and review the corrected Functional Requirement Item preview at a mobile viewport.
 
 - [x] Review and record mobile Functional Requirement Item readability, spacing, wrapping, and distortion outcome: dedicated item page is readable with stable wrapping and no visible distortion.
+
+- [x] Normalize LLM clarification output to exactly 3–5 questions with canonical q1–q5 identifiers before schema validation and generation.
+- [x] Guard the client generation payload against stale or oversized clarification lists.
+- [x] Add regression tests for malformed/oversized model questions and verify the fixed workflow.

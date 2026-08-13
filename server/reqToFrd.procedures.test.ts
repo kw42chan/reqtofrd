@@ -34,6 +34,14 @@ describe("ReqToFRD procedures", () => {
     expect(markOpenRouterMapped).toHaveBeenCalledWith(expect.anything(), "clarification", "json_object", expect.objectContaining({ storyCount: 3 }));
   });
 
+  it("caps oversized model clarification output and canonicalizes q6 to the q1–q5 contract", async () => {
+    const questions = ["Business Logic", "Integration", "Scope Boundary", "Exception Handling", "Business Logic", "Integration"].map((category, index) => ({ id: `q${index + 1}`, category, question: `Question ${index + 1}?` }));
+    vi.mocked(invokeOpenRouter).mockResolvedValueOnce(response(JSON.stringify({ phase: "CLARIFICATION", gap_summary: "Gap.", questions })) as any);
+    const result = await appRouter.createCaller(ctx).reqToFrd.analyze(input);
+    expect(result.questions).toHaveLength(5);
+    expect(result.questions.map(question => question.id)).toEqual(["q1", "q2", "q3", "q4", "q5"]);
+  });
+
   it("rejects malformed clarification JSON", async () => {
     vi.mocked(invokeOpenRouter).mockResolvedValueOnce(response("not-json") as any);
     await expect(appRouter.createCaller(ctx).reqToFrd.analyze(input)).rejects.toThrow();
@@ -48,6 +56,14 @@ describe("ReqToFRD procedures", () => {
     ], answers: { q1: "100000", q2: "Core gateway v2", q3: "International payments" } });
     expect(result.markdown).toContain("FR-01");
     expect(invokeOpenRouter).toHaveBeenCalledWith(expect.objectContaining({ model: "openai/gpt-4o-mini", operation: "generation" }));
+  });
+
+  it("accepts a stale oversized generation payload by capping and reindexing it before prompt assembly", async () => {
+    vi.mocked(invokeOpenRouter).mockResolvedValueOnce(response("# Functional Requirements\n\n### FR-01") as any);
+    const questions = ["Business Logic", "Integration", "Scope Boundary", "Exception Handling", "Business Logic", "Integration"].map((category, index) => ({ id: `q${index + 1}`, category, question: `Question ${index + 1}?` }));
+    await expect(appRouter.createCaller(ctx).reqToFrd.generate({ ...input, questions, answers: {} })).resolves.toEqual(expect.objectContaining({ markdown: expect.stringContaining("FR-01") }));
+    const call = vi.mocked(invokeOpenRouter).mock.calls[0]?.[0];
+    expect(call?.messages[1]?.content).not.toContain("Question 6?");
   });
 
   it("exposes only a boolean API key status and never the raw credential", async () => {

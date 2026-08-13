@@ -56,6 +56,27 @@ const clarificationSchema = z.object({
   })).min(3).max(5),
 });
 
+const rawClarificationSchema = z.object({
+  phase: z.literal("CLARIFICATION"),
+  gap_summary: z.string().min(1),
+  questions: z.array(z.object({ id: z.string().optional(), category: z.string(), question: z.string() })),
+});
+
+function normalizeQuestions(value: unknown) {
+  if (!Array.isArray(value)) return value;
+  return value.slice(0, 5).map((item, index) => {
+    const question = item as Record<string, unknown>;
+    return { ...question, id: `q${index + 1}` };
+  });
+}
+
+function normalizeClarification(value: unknown) {
+  const raw = rawClarificationSchema.parse(value);
+  return clarificationSchema.parse({ ...raw, questions: normalizeQuestions(raw.questions) });
+}
+
+const generationQuestionsSchema = z.preprocess(normalizeQuestions, z.array(z.object({ id: z.string().regex(/^q[1-5]$/), category: questionCategory, question: z.string().min(1) })).min(3).max(5));
+
 function strictDate(value: string) {
   return /^\d{2}-[A-Z]{3}-\d{2}$/.test(value) ? value : "13-AUG-26";
 }
@@ -93,12 +114,12 @@ export const appRouter = router({
         ],
         responseFormat: { type: "json_object" },
       });
-      const parsed = clarificationSchema.parse(JSON.parse(response.content));
+      const parsed = normalizeClarification(JSON.parse(response.content));
       markOpenRouterMapped(response, "clarification", "json_object", { responseKeys: Object.keys(parsed), storyCount: parsed.questions.length });
       return parsed;
     }),
     generate: publicProcedure.input(commonInput.extend({
-      questions: z.array(z.object({ id: z.string(), category: questionCategory, question: z.string() })).min(3).max(5),
+      questions: generationQuestionsSchema,
       answers: z.record(z.string(), z.string()),
     })).mutation(async ({ input }) => {
       const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nGENERATION INPUT\nHigh-Level Requirement:\n${input.requirement}\n\nDocument title: ${input.documentTitle}\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) }, null, 2)}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nClarifying Questions and Answers:\n${input.questions.map(q => `${q.id} [${q.category}] ${q.question}\nAnswer: ${input.answers[q.id] || "No answer provided"}`).join("\n\n")}\n\nGenerate only the complete FRD in Markdown. Use the mandatory six sections, strict tables, exact role labels, DD-MMM-YY dates, and FR-01 style identifiers. Do not add a preamble.`;
