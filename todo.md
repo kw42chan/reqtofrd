@@ -107,3 +107,12 @@
 
 - [x] Add procedure-level verification that OpenRouter timeout recovery errors surface clearly through both clarification and generation mutations.
 - [x] Save the verified timeout-resilience checkpoint.
+
+- [x] Add per-item editing controls for completed functional requirements after render.
+- [x] Recompose the FRD preview, audit, copy, and DOCX output immediately after an item edit is saved.
+- [x] Add post-render editing regression tests, live preview verification, and a checkpoint.
+
+- [x] Perform and record a live Functional Requirement Item edit, save it, and confirm the rendered FRD refreshes with the revised content.
+
+- [x] Perform browser-level Edit item → Save to FRD verification and confirm the rendered combined FRD updates with the edited text.
+- [ ] Save the verified post-render editing checkpoint.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, composeRequirementDocument, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, requirementSamples, retainAnalysis, sanitizeFilename, selectRequirementSample, updateDistributionEntry } from "../client/src/lib/reqToFrd";
+import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, composeRequirementDocument, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, requirementSamples, retainAnalysis, sanitizeFilename, selectRequirementSample, updateDistributionEntry, updateGeneratedRequirementItem } from "../client/src/lib/reqToFrd";
 
 describe("ReqToFRD audit helpers", () => {
   it("sanitizes document titles into safe docx filenames", () => {
@@ -146,6 +146,18 @@ describe("ReqToFRD additive requirement workflow", () => {
     ]);
     const pages = splitFunctionalRequirementPages(document);
     expect(pages.map(page => page.markdown)).toEqual(expect.arrayContaining([expect.stringContaining("First requirement"), expect.stringContaining("Second requirement")]));
+  });
+
+  it("updates a completed functional requirement and rebuilds the composed FRD without changing other items", () => {
+    const items = [
+      { id: "req-1", requirement: "First", markdown: "### FR-01\nOriginal first requirement" },
+      { id: "req-2", requirement: "Second", markdown: "### FR-02\nSecond requirement" },
+    ];
+    const updated = updateGeneratedRequirementItem(items, "req-1", "### FR-01\nEdited first requirement");
+    const document = composeRequirementDocument(updated);
+    expect(document).toContain("Edited first requirement");
+    expect(document).toContain("Second requirement");
+    expect(document).not.toContain("Original first requirement");
   });
 
   it("creates an explicit fresh-document state for the top-left action", () => {
