@@ -49,4 +49,19 @@ describe("ReqToFRD procedures", () => {
     expect(result.markdown).toContain("FR-01");
     expect(invokeOpenRouter).toHaveBeenCalledWith(expect.objectContaining({ model: "openai/gpt-4o-mini", operation: "generation" }));
   });
+
+  it("exposes only a boolean API key status and never the raw credential", async () => {
+    const models = await appRouter.createCaller(ctx).reqToFrd.models();
+    expect(typeof models.apiKeyConfigured).toBe("boolean");
+    expect(Object.keys(models)).not.toContain("apiKey");
+    expect(JSON.stringify(models)).not.toContain(process.env.OPENROUTER_API_KEY ?? "definitely-not-present");
+  });
+
+  it("routes a custom model slug and session key override without returning either value", async () => {
+    vi.mocked(invokeOpenRouter).mockResolvedValueOnce(response(JSON.stringify({ phase: "CLARIFICATION", gap_summary: "Gap.", questions: [
+      { id: "q1", category: "Business Logic", question: "Rule?" }, { id: "q2", category: "Integration", question: "API?" }, { id: "q3", category: "Scope Boundary", question: "Scope?" },
+    ] })) as any);
+    await appRouter.createCaller(ctx).reqToFrd.analyze({ ...input, model: "provider/custom-slug", openRouterApiKey: "session-only-key-1234567890" });
+    expect(invokeOpenRouter).toHaveBeenCalledWith(expect.objectContaining({ model: "provider/custom-slug", apiKey: "session-only-key-1234567890" }));
+  });
 });

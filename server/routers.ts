@@ -42,6 +42,7 @@ const commonInput = z.object({
   customGuidelines: z.string().default(""),
   documentTitle: z.string().default("Untitled FRD"),
   model: z.string().min(3).default(DEFAULT_OPENROUTER_MODEL),
+  openRouterApiKey: z.string().min(20).max(500).optional(),
   metadata: metadataSchema,
 });
 
@@ -70,10 +71,10 @@ export const appRouter = router({
     }),
   }),
   reqToFrd: router({
-    models: publicProcedure.query(() => ({ defaultModel: DEFAULT_OPENROUTER_MODEL, verified: VERIFIED_OPENROUTER_MODELS, candidates: OPENROUTER_CANDIDATE_MODELS })),
+    models: publicProcedure.query(() => ({ apiKeyConfigured: Boolean(process.env.OPENROUTER_API_KEY), defaultModel: DEFAULT_OPENROUTER_MODEL, verified: VERIFIED_OPENROUTER_MODELS, candidates: OPENROUTER_CANDIDATE_MODELS })),
     diagnostics: publicProcedure.query(() => getOpenRouterDiagnostics()),
-    probe: publicProcedure.input(z.object({ model: z.string().min(3) })).mutation(async ({ input }) => {
-      const result = await invokeOpenRouter({ model: input.model, operation: "probe", outputMode: "json_object", messages: [{ role: "user", content: "Return exactly this JSON object: {\"ok\":true}" }], responseFormat: { type: "json_object" } });
+    probe: publicProcedure.input(z.object({ model: z.string().min(3), openRouterApiKey: z.string().min(20).max(500).optional() })).mutation(async ({ input }) => {
+      const result = await invokeOpenRouter({ apiKey: input.openRouterApiKey, model: input.model, operation: "probe", outputMode: "json_object", messages: [{ role: "user", content: "Return exactly this JSON object: {\"ok\":true}" }], responseFormat: { type: "json_object" } });
       const parsed = JSON.parse(result.content) as { ok?: boolean };
       if (parsed.ok !== true) throw new Error("OpenRouter probe did not map to the expected response contract.");
       markOpenRouterMapped(result, "probe", "json_object", { responseKeys: Object.keys(parsed) });
@@ -82,6 +83,7 @@ export const appRouter = router({
     analyze: publicProcedure.input(commonInput).mutation(async ({ input }) => {
       const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nANALYSIS INPUT\nRequirement:\n${input.requirement}\n\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) })}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nReturn only the strict CLARIFICATION JSON object. Do not generate the FRD.`;
       const response = await invokeOpenRouter({
+        apiKey: input.openRouterApiKey,
         model: input.model,
         operation: "clarification",
         outputMode: "json_object",
@@ -101,6 +103,7 @@ export const appRouter = router({
     })).mutation(async ({ input }) => {
       const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nGENERATION INPUT\nHigh-Level Requirement:\n${input.requirement}\n\nDocument title: ${input.documentTitle}\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) }, null, 2)}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nClarifying Questions and Answers:\n${input.questions.map(q => `${q.id} [${q.category}] ${q.question}\nAnswer: ${input.answers[q.id] || "No answer provided"}`).join("\n\n")}\n\nGenerate only the complete FRD in Markdown. Use the mandatory six sections, strict tables, exact role labels, DD-MMM-YY dates, and FR-01 style identifiers. Do not add a preamble.`;
       const response = await invokeOpenRouter({
+        apiKey: input.openRouterApiKey,
         model: input.model,
         operation: "generation",
         outputMode: "markdown",

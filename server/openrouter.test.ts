@@ -14,4 +14,13 @@ describe("OpenRouter diagnostics", () => {
     expect(latest?.errorType).toBe("auth");
     expect(latest?.message).not.toContain("secret-value");
   });
+
+  it("uses a supplied session key only for the current request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "{\"ok\":true}" } }] }), { status: 200 }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    await invokeOpenRouter({ apiKey: "session-only-key-1234567890", operation: "probe", outputMode: "json_object", messages: [{ role: "user", content: "probe" }], responseFormat: { type: "json_object" } });
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer session-only-key-1234567890");
+    expect(JSON.stringify(getOpenRouterDiagnostics())).not.toContain("session-only-key-1234567890");
+  });
 });

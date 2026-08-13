@@ -71,3 +71,14 @@
 - [x] Probe `deepseek/deepseek-v4-pro-0813`, validate a mapped clarification response and a representative FRD generation response, and promote it only on success.
 
 - [x] Save the validated OpenRouter integration checkpoint after the 27-test suite and responsive Model Lab verification.
+
+- [x] Show a masked configured-key status and secure key update affordance on the front-page Model Lab without exposing the existing secret.
+- [x] Add a front-page custom OpenRouter model-slug field and model selection control for generation.
+- [x] Add validation, tests, responsive verification, and a checkpoint for the secure configuration UX.
+
+- [x] Add a front-page session-only masked API key override that is sent only with generation requests and never returned, logged, or persisted by the app.
+- [x] Add targeted tests for API key status exposure, key-override routing, and custom model-slug selection.
+- [x] Re-verify and checkpoint the completed secure configuration UX.
+
+- [x] Add targeted tests proving the models endpoint returns only boolean key status and custom model slugs are accepted for front-page configuration.
+- [ ] Save the post-change secure configuration checkpoint after the targeted tests pass.

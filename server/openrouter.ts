@@ -34,8 +34,8 @@ function classify(status: number, message: string): OpenRouterDiagnostic["errorT
 
 export function getOpenRouterDiagnostics() { return { version: 1, retention: RETENTION, requestLifecycle: [...lifecycle], modelHistory: Object.values(lifecycle.reduce<Record<string, OpenRouterDiagnostic[]>>((history, entry) => { (history[entry.model] ??= []).push(entry); return history; }, {})) }; }
 
-export async function invokeOpenRouter(input: { model?: string; operation: Operation; outputMode: OutputMode; messages: Array<{ role: "system" | "user"; content: string }>; responseFormat?: Record<string, unknown>; maxTokens?: number }) {
-  const key = process.env.OPENROUTER_API_KEY;
+export async function invokeOpenRouter(input: { apiKey?: string; model?: string; operation: Operation; outputMode: OutputMode; messages: Array<{ role: "system" | "user"; content: string }>; responseFormat?: Record<string, unknown>; maxTokens?: number }) {
+  const key = input.apiKey || process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("OPENROUTER_API_KEY is not configured.");
   const model = input.model || DEFAULT_OPENROUTER_MODEL;
   const requestId = crypto.randomUUID();
