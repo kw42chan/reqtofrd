@@ -106,4 +106,4 @@
 - [x] Add timeout regression tests, verify the workflow, and checkpoint the resilience fix.
 
 - [x] Add procedure-level verification that OpenRouter timeout recovery errors surface clearly through both clarification and generation mutations.
-- [ ] Save the verified timeout-resilience checkpoint.
+- [x] Save the verified timeout-resilience checkpoint.
