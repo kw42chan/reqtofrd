@@ -100,3 +100,10 @@
 - [x] Verify the combined Rendered Preview after multiple completed requirement items are assembled through the focused composed-document and page-splitter regression assertion.
 
 - [x] Add a development-only multi-item preview fixture and capture the live Rendered Preview showing all completed requirement items together.
+
+- [x] Inspect and correct OpenRouter generation timeout configuration and abort handling.
+- [x] Add bounded retry behavior and actionable timeout recovery messaging for clarification and FRD generation.
+- [x] Add timeout regression tests, verify the workflow, and checkpoint the resilience fix.
+
+- [x] Add procedure-level verification that OpenRouter timeout recovery errors surface clearly through both clarification and generation mutations.
+- [ ] Save the verified timeout-resilience checkpoint.

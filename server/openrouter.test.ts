@@ -23,4 +23,19 @@ describe("OpenRouter diagnostics", () => {
     expect(headers.Authorization).toBe("Bearer session-only-key-1234567890");
     expect(JSON.stringify(getOpenRouterDiagnostics())).not.toContain("session-only-key-1234567890");
   });
+
+  it("retries a transient timeout once and returns the recovered model response", async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new DOMException("The operation was aborted due to timeout", "TimeoutError"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: "# FRD" } }] }), { status: 200 }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    await expect(invokeOpenRouter({ operation: "generation", outputMode: "markdown", messages: [{ role: "user", content: "generate" }], retryDelayMs: 0 })).resolves.toMatchObject({ content: "# FRD" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports a clear recovery error after both bounded timeout attempts fail", async () => {
+    global.fetch = vi.fn().mockRejectedValue(new DOMException("The operation was aborted due to timeout", "TimeoutError")) as unknown as typeof fetch;
+    await expect(invokeOpenRouter({ operation: "generation", outputMode: "markdown", messages: [{ role: "user", content: "generate" }], retryDelayMs: 0 })).rejects.toThrow("timed out after two bounded attempts");
+    expect(getOpenRouterDiagnostics().requestLifecycle.at(-1)?.errorType).toBe("timeout");
+  });
 });
