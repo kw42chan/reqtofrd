@@ -23,7 +23,7 @@ describe("ReqToFRD audit helpers", () => {
 });
 
 import { dedicatedDocumentBlocks, markdownBlocks, stripDedicatedMarkdown } from "../client/src/lib/exportDocx";
-import { stripDedicatedPages } from "../client/src/lib/previewPagination";
+import { splitFunctionalRequirementPages, stripDedicatedPages } from "../client/src/lib/previewPagination";
 import { ENTERPRISE_AUDIT_FRD_TEMPLATE, ENTERPRISE_AUDIT_FRD_TEMPLATE_VERSION, REQUIRED_QUESTION_CATEGORIES } from "../lib/req-to-frd/templates/enterprise-audit-frd";
 
 describe("ReqToFRD enterprise template contracts", () => {
@@ -100,6 +100,13 @@ describe("ReqToFRD dedicated-page pagination", () => {
   it("assembles dedicated cover and sign-off blocks before the FRD body", () => {
     const blocks = dedicatedDocumentBlocks("Payments", defaultMetadata);
     expect(blocks.length).toBeGreaterThan(6);
+  });
+
+  it("separates appended functional requirement items into stable document pages", () => {
+    const pages = splitFunctionalRequirementPages("# Revision History\nInitial draft\n\n# Functional Requirement Item 1\n\n## Functional Requirements\n### FR-01\nLogic\n\n# Functional Requirement Item 2\n\n## Functional Requirements\n### FR-02\nMore logic");
+    expect(pages.map(page => page.label)).toEqual(["Functional Requirement Document", "Functional Requirement Item 1", "Functional Requirement Item 2"]);
+    expect(pages[1].markdown).toContain("FR-01");
+    expect(pages[2].markdown).toContain("FR-02");
   });
 });
 

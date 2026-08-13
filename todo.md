@@ -82,3 +82,10 @@
 
 - [x] Add targeted tests proving the models endpoint returns only boolean key status and custom model slugs are accepted for front-page configuration.
 - [x] Save the post-change secure configuration checkpoint after the targeted tests pass.
+
+- [x] Inspect and correct distorted Functional Requirement Item preview layout and Markdown rendering.
+- [x] Add rendering regression coverage and verify the corrected document at desktop and mobile viewports.
+
+- [x] Capture and review the corrected Functional Requirement Item preview at a mobile viewport.
+
+- [x] Review and record mobile Functional Requirement Item readability, spacing, wrapping, and distortion outcome: dedicated item page is readable with stable wrapping and no visible distortion.

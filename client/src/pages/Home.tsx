@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, ClarifyingQuestion, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, DistributionListEntry, DocumentMetadata, formattingProfiles, requirementSamples, RetainedAnalysis, retainAnalysis, selectRequirementSample, updateDistributionEntry, WorkflowStatus } from "@/lib/reqToFrd";
 import { downloadDocx } from "@/lib/exportDocx";
-import { stripDedicatedPages } from "@/lib/previewPagination";
+import { splitFunctionalRequirementPages } from "@/lib/previewPagination";
 
 const initialMarkdown = "# Functional Requirement Document\n\nThe remaining FRD sections will appear after generation.";
 const statusClass: Record<WorkflowStatus, string> = { Idle: "bg-slate-100 text-slate-600", Clarifying: "bg-amber-50 text-amber-700", Generating: "bg-cyan-50 text-cyan-700", Completed: "bg-emerald-50 text-emerald-700" };
@@ -21,7 +21,7 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
 }
 
 function PagedPreview({ markdown, metadata, title }: { markdown: string; metadata: DocumentMetadata; title: string }) {
-  const remainingMarkdown = stripDedicatedPages(markdown);
+  const requirementPages = splitFunctionalRequirementPages(markdown);
   return <div className="space-y-8">
     <section className="flex min-h-[820px] flex-col justify-between bg-white px-8 py-12 shadow-sm sm:px-14" aria-label="Cover Page">
       <div className="flex justify-between border-b border-slate-200 pb-4"><span className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">MANDATORY SECTION 1</span><span className="text-[10px] font-bold text-slate-400">COVER PAGE</span></div>
@@ -32,7 +32,7 @@ function PagedPreview({ markdown, metadata, title }: { markdown: string; metadat
       <p className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">MANDATORY SIGN-OFF PAGE</p><h2 className="mt-2 border-b border-slate-200 pb-4 text-2xl font-semibold">Distribution &amp; Sign-off Table</h2><p className="mt-3 text-sm text-slate-500">Controlled distribution list for review, approval, and information purposes.</p>
       <div className="mt-8 overflow-x-auto"><table className="w-full border-collapse text-left text-xs"><thead><tr className="bg-[#112a36] text-white"><th className="border border-[#112a36] px-3 py-3">Name</th><th className="border border-[#112a36] px-3 py-3">Title</th><th className="border border-[#112a36] px-3 py-3">Department</th><th className="border border-[#112a36] px-3 py-3">Role Type</th></tr></thead><tbody>{metadata.distributionList.map(entry => <tr key={entry.id} className="odd:bg-slate-50"><td className="border border-slate-200 px-3 py-3">{entry.name || "—"}</td><td className="border border-slate-200 px-3 py-3">{entry.title || "—"}</td><td className="border border-slate-200 px-3 py-3">{entry.department}</td><td className="border border-slate-200 px-3 py-3 font-semibold text-[#236b62]">{entry.roleType}</td></tr>)}</tbody></table></div>
     </section>
-    <article className="prose prose-slate max-w-none bg-white px-8 py-10 shadow-sm prose-h1:text-3xl prose-h2:text-xl prose-p:text-sm sm:px-14"><Streamdown>{remainingMarkdown || "## Revision History\n\nThe remaining FRD sections will appear after generation."}</Streamdown></article>
+    {(requirementPages.length ? requirementPages : [{ label: "Functional Requirement Document", markdown: "## Revision History\n\nThe remaining FRD sections will appear after generation." }]).map((page, index) => <article key={`${page.label}-${index}`} className="min-h-[820px] min-w-0 overflow-hidden bg-white px-8 py-10 shadow-sm sm:px-14"><div className="mb-7 flex items-center justify-between border-b border-slate-200 pb-3"><span className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">{page.label.toUpperCase()}</span><span className="text-[10px] font-semibold text-slate-400">FRD CONTENT</span></div><div className="prose prose-slate max-w-none break-words prose-headings:scroll-mt-20 prose-h1:text-3xl prose-h2:text-xl prose-h3:text-base prose-p:text-sm prose-table:block prose-table:max-w-full prose-table:overflow-x-auto prose-th:whitespace-normal prose-td:align-top prose-td:whitespace-normal"><Streamdown>{page.markdown}</Streamdown></div></article>)}
   </div>;
 }
 
