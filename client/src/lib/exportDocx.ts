@@ -1,23 +1,30 @@
-import { AlignmentType, Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, TextRun } from "docx";
+import { AlignmentType, BorderStyle, Document, HeadingLevel, Packer, PageBreak, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun } from "docx";
+import type { DocumentMetadata } from "./reqToFrd";
 import { sanitizeFilename } from "./reqToFrd";
 
+export function stripDedicatedMarkdown(markdown: string) {
+  const lines = markdown.split("\n");
+  const retained: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    const heading = line.replace(/^#+\s*/, "").toLowerCase();
+    if (heading.includes("cover page") || heading.includes("distribution & sign-off") || heading.includes("distribution and sign-off")) { skipping = true; continue; }
+    if (skipping && /^#+\s+/.test(line)) skipping = false;
+    if (!skipping) retained.push(line);
+  }
+  return retained.join("\n").trim();
+}
+
 function inlineRuns(text: string) {
-  const runs: TextRun[] = [];
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  parts.forEach(part => {
-    if (part.startsWith("**") && part.endsWith("**")) runs.push(new TextRun({ text: part.slice(2, -2), bold: true }));
-    else if (part) runs.push(new TextRun(part));
-  });
-  return runs.length ? runs : [new TextRun("")];
+  return text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map(part => part.startsWith("**") && part.endsWith("**") ? new TextRun({ text: part.slice(2, -2), bold: true }) : new TextRun(part));
 }
 
 export function markdownBlocks(markdown: string) {
   const lines = markdown.replace(/\r/g, "").split("\n");
   const blocks: Array<Paragraph | Table> = [];
-  let i = 0;
-  while (i < lines.length) {
+  for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? "";
-    if (!line.trim()) { i += 1; continue; }
+    if (!line.trim()) continue;
     if (line.startsWith("|")) {
       const rows: string[][] = [];
       while (i < lines.length && (lines[i] ?? "").trim().startsWith("|")) {
@@ -25,40 +32,51 @@ export function markdownBlocks(markdown: string) {
         if (!cells.every(cell => /^:?-{3,}:?$/.test(cell))) rows.push(cells);
         i += 1;
       }
-      if (rows.length) blocks.push(new Table({ rows: rows.map((row, rowIndex) => new TableRow({ children: row.map(cell => new TableCell({ children: [new Paragraph({ children: rowIndex === 0 ? [new TextRun({ text: cell, bold: true })] : inlineRuns(cell) })] })) })) }));
+      i -= 1;
+      if (rows.length) blocks.push(new Table({ rows: rows.map((row, index) => new TableRow({ children: row.map(cell => new TableCell({ children: [new Paragraph({ children: index === 0 ? [new TextRun({ text: cell, bold: true })] : inlineRuns(cell) })] })) })) }));
       continue;
     }
     const heading = line.match(/^(#{1,3})\s+(.+)/);
-    if (heading) {
-      const level = heading[1].length === 1 ? HeadingLevel.HEADING_1 : heading[1].length === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3;
-      blocks.push(new Paragraph({ heading: level, children: inlineRuns(heading[2]) }));
-    } else if (/^>\s?/.test(line)) {
-      blocks.push(new Paragraph({ style: "Intense Quote", children: inlineRuns(line.replace(/^>\s?/, "")) }));
-    } else if (/^\s*[-*]\s+/.test(line)) {
-      blocks.push(new Paragraph({ bullet: { level: 0 }, children: inlineRuns(line.replace(/^\s*[-*]\s+/, "")) }));
-    } else if (/^\s*\d+[.)]\s+/.test(line)) {
-      blocks.push(new Paragraph({ numbering: { reference: "frd-numbered", level: 0 }, children: inlineRuns(line.replace(/^\s*\d+[.)]\s+/, "")) }));
-    } else {
-      blocks.push(new Paragraph({ spacing: { after: 120 }, children: inlineRuns(line) }));
-    }
-    i += 1;
+    if (heading) blocks.push(new Paragraph({ heading: heading[1].length === 1 ? HeadingLevel.HEADING_1 : heading[1].length === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3, children: inlineRuns(heading[2]) }));
+    else if (/^>\s?/.test(line)) blocks.push(new Paragraph({ style: "Intense Quote", children: inlineRuns(line.replace(/^>\s?/, "")) }));
+    else if (/^\s*[-*]\s+/.test(line)) blocks.push(new Paragraph({ bullet: { level: 0 }, children: inlineRuns(line.replace(/^\s*[-*]\s+/, "")) }));
+    else blocks.push(new Paragraph({ spacing: { after: 120 }, children: inlineRuns(line) }));
   }
   return blocks;
 }
 
-export async function downloadDocx(markdown: string, title: string) {
-  const doc = new Document({
-    creator: "ReqToFRD",
-    title,
-    description: "Audit-compliant Functional Requirement Document",
-    numbering: { config: [{ reference: "frd-numbered", levels: [{ level: 0, format: "decimal", text: "%1.", alignment: AlignmentType.LEFT }] }] },
-    sections: [{ properties: { page: { margin: { top: 900, right: 900, bottom: 900, left: 900 } } }, children: markdownBlocks(markdown) }],
-  });
+function coverPage(title: string, metadata: DocumentMetadata): Paragraph[] {
+  return [
+    new Paragraph({ text: "MANDATORY SECTION 1: COVER PAGE", alignment: AlignmentType.CENTER, spacing: { after: 800 } }),
+    new Paragraph({ text: "FUNCTIONAL REQUIREMENT DOCUMENT", alignment: AlignmentType.CENTER, heading: HeadingLevel.TITLE, spacing: { after: 360 } }),
+    new Paragraph({ text: title || metadata.enhancementTitle, alignment: AlignmentType.CENTER, heading: HeadingLevel.HEADING_1, spacing: { after: 600 } }),
+    new Paragraph({ text: `${metadata.region}_${metadata.system}_${metadata.enhancementTitle}`, alignment: AlignmentType.CENTER, spacing: { after: 1100 } }),
+    new Paragraph({ children: [new TextRun({ text: "Request / Demand ID: ", bold: true }), new TextRun(metadata.requestId)] }),
+    new Paragraph({ children: [new TextRun({ text: "Revision: ", bold: true }), new TextRun(`${metadata.revisionVersion} · ${metadata.revisionDate}`)] }),
+    new Paragraph({ children: [new PageBreak()] }),
+  ];
+}
+
+function signOffPage(metadata: DocumentMetadata): Array<Paragraph | Table> {
+  const borders = { top: { style: BorderStyle.SINGLE, color: "112A36", size: 8 }, bottom: { style: BorderStyle.SINGLE, color: "112A36", size: 8 }, left: { style: BorderStyle.SINGLE, color: "112A36", size: 8 }, right: { style: BorderStyle.SINGLE, color: "112A36", size: 8 }, insideHorizontal: { style: BorderStyle.SINGLE, color: "B8C6C9", size: 4 }, insideVertical: { style: BorderStyle.SINGLE, color: "B8C6C9", size: 4 } };
+  const table = new Table({ borders, rows: [
+    new TableRow({ children: ["Name", "Title", "Department", "Role Type"].map(cell => new TableCell({ shading: { type: ShadingType.CLEAR, color: "112A36", fill: "112A36" }, children: [new Paragraph({ children: [new TextRun({ text: cell, bold: true, color: "FFFFFF" })] })] })) }),
+    ...metadata.distributionList.map(entry => new TableRow({ children: [entry.name || "—", entry.title || "—", entry.department, entry.roleType].map(cell => new TableCell({ children: [new Paragraph(cell)] })) })),
+  ] });
+  return [new Paragraph({ text: "Distribution & Sign-off Table", heading: HeadingLevel.HEADING_1, spacing: { after: 240 } }), new Paragraph({ text: "MANDATORY SIGN-OFF PAGE", spacing: { after: 300 } }), table, new Paragraph({ children: [new PageBreak()] })];
+}
+
+export function dedicatedDocumentBlocks(title: string, metadata: DocumentMetadata): Array<Paragraph | Table> {
+  return [...coverPage(title, metadata), ...signOffPage(metadata)];
+}
+
+export async function downloadDocx(markdown: string, title: string, metadata?: DocumentMetadata) {
+  const sections = metadata
+    ? [{ properties: { page: { margin: { top: 900, right: 900, bottom: 900, left: 900 } } }, children: [...dedicatedDocumentBlocks(title, metadata), ...markdownBlocks(stripDedicatedMarkdown(markdown))] }]
+    : [{ properties: { page: { margin: { top: 900, right: 900, bottom: 900, left: 900 } } }, children: markdownBlocks(markdown) }];
+  const doc = new Document({ creator: "ReqToFRD", title, description: "Audit-compliant Functional Requirement Document", numbering: { config: [{ reference: "frd-numbered", levels: [{ level: 0, format: "decimal", text: "%1.", alignment: AlignmentType.LEFT }] }] }, sections });
   const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = sanitizeFilename(title);
-  anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.href = url; anchor.download = sanitizeFilename(title); anchor.click(); URL.revokeObjectURL(url);
 }

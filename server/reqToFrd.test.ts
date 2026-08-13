@@ -22,7 +22,8 @@ describe("ReqToFRD audit helpers", () => {
   });
 });
 
-import { markdownBlocks } from "../client/src/lib/exportDocx";
+import { dedicatedDocumentBlocks, markdownBlocks, stripDedicatedMarkdown } from "../client/src/lib/exportDocx";
+import { stripDedicatedPages } from "../client/src/lib/previewPagination";
 import { ENTERPRISE_AUDIT_FRD_TEMPLATE, ENTERPRISE_AUDIT_FRD_TEMPLATE_VERSION, REQUIRED_QUESTION_CATEGORIES } from "../lib/req-to-frd/templates/enterprise-audit-frd";
 
 describe("ReqToFRD enterprise template contracts", () => {
@@ -82,5 +83,22 @@ describe("ReqToFRD distribution list", () => {
     expect(cycle.metadata).toBe(defaultMetadata);
     expect(cycle.requirement).toBe("");
     expect(cycle.questions).toEqual([]);
+  });
+});
+
+describe("ReqToFRD dedicated-page pagination", () => {
+  it("removes generated cover and sign-off content from the DOCX body", () => {
+    const markdown = "# Cover Page\nmetadata\n# Distribution & Sign-off Table\n| Name | Role |\n| --- | --- |\n| A | Reviewer |\n# Revision History\nVersion Number";
+    expect(stripDedicatedMarkdown(markdown)).toBe("# Revision History\nVersion Number");
+  });
+
+  it("removes generated cover and sign-off content from the preview body", () => {
+    const markdown = "# Cover Page\nmetadata\n# Distribution & Sign-off Table\nrows\n# Revision History\nVersion Number";
+    expect(stripDedicatedPages(markdown)).toBe("# Revision History\nVersion Number");
+  });
+
+  it("assembles dedicated cover and sign-off blocks before the FRD body", () => {
+    const blocks = dedicatedDocumentBlocks("Payments", defaultMetadata);
+    expect(blocks.length).toBeGreaterThan(6);
   });
 });

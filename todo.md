@@ -37,3 +37,14 @@
 - [x] Remove duplicate identifier and legacy participant controls so document metadata is represented only by identifiers, revision history, and the repeatable distribution list.
 - [x] Add focused tests for distribution-list updates and the new-requirement cycle preserving metadata.
 - [x] Verify the refined metadata and distribution-list experience at a mobile viewport.
+
+- [x] Render MANDATORY SECTION 1: COVER PAGE as a dedicated single page in the document preview.
+- [x] Render the Distribution & Sign-off Table as a true table on its own dedicated single preview page.
+- [x] Apply matching DOCX page breaks and table styling for the cover and distribution/sign-off pages.
+- [x] Add automated checks and responsive verification for the revised preview pagination.
+
+- [x] Strip duplicate cover and distribution/sign-off content from the remaining preview and DOCX body.
+- [x] Add explicit DOCX sign-off table borders and header styling.
+- [x] Add pagination helper tests and capture a mobile preview verification after the page-layout update.
+
+- [x] Add automated coverage for preview-side dedicated-page stripping and DOCX cover/sign-off page assembly.
