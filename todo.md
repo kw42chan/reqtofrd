@@ -81,4 +81,4 @@
 - [x] Re-verify and checkpoint the completed secure configuration UX.
 
 - [x] Add targeted tests proving the models endpoint returns only boolean key status and custom model slugs are accepted for front-page configuration.
-- [ ] Save the post-change secure configuration checkpoint after the targeted tests pass.
+- [x] Save the post-change secure configuration checkpoint after the targeted tests pass.
