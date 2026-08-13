@@ -70,4 +70,4 @@
 
 - [x] Probe `deepseek/deepseek-v4-pro-0813`, validate a mapped clarification response and a representative FRD generation response, and promote it only on success.
 
-- [ ] Save the validated OpenRouter integration checkpoint after the 27-test suite and responsive Model Lab verification.
+- [x] Save the validated OpenRouter integration checkpoint after the 27-test suite and responsive Model Lab verification.
