@@ -19,11 +19,11 @@
 - [x] Add accessibility landmarks, focus states, live-region announcements, responsive mobile flow, and reduced-motion support.
 - [x] Expand Vitest coverage for workflow state transitions, validation, prompt/template assembly, markdown normalization, DOCX blocks, and analyze/generate procedures; includes mocked analyze/generate success and malformed-output tests.
 - [x] Run type checks, tests, browser verification, desktop/mobile screenshots, and fix discovered issues.
-- [ ] Save the final webdev checkpoint and deliver the project version.
+- [x] Save the final webdev checkpoint and deliver the project version.
 
 - [x] Expose revision version, revision description, updated by, and revision remarks in the metadata UI.
 - [x] Add generation cancellation/reset handling around the live preview update loop; backend output remains provider-response based.
 - [x] Add Download `.docx` to the right-panel floating toolbar.
 - [x] Expand Vitest coverage for workflow validation, template prompt assembly, markdown parsing, DOCX blocks, and analyze/generate procedures.
-- [ ] Save the final webdev checkpoint and record the delivered project version.
+- [x] Save the final webdev checkpoint and record the delivered project version.
 - [x] Handle aborted generation explicitly so reset/cancel stays Idle without an error toast.
