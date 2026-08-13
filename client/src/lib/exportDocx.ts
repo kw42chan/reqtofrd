@@ -11,7 +11,7 @@ function inlineRuns(text: string) {
   return runs.length ? runs : [new TextRun("")];
 }
 
-function markdownBlocks(markdown: string) {
+export function markdownBlocks(markdown: string) {
   const lines = markdown.replace(/\r/g, "").split("\n");
   const blocks: Array<Paragraph | Table> = [];
   let i = 0;

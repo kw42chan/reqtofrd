@@ -43,6 +43,14 @@ export const defaultMetadata: DocumentMetadata = {
 
 export const sampleRequirement = `The treasury operations team needs a controlled payment release workflow for high-value domestic transfers. Payments above a configurable threshold should require dual approval, integrate with the core banking gateway, prevent duplicate submissions, and provide an auditable status trail for operations, compliance, and finance.`;
 
+export function normalizeMarkdown(markdown: string) {
+  return markdown.replace(/\r/g, "").replace(/```(?:markdown)?\s*/gi, "").replace(/\s*```$/g, "").replace(/^\s+|\s+$/g, "");
+}
+
+export function canGenerate(status: WorkflowStatus, questionCount: number) {
+  return questionCount >= 3 && questionCount <= 5 && (status === "Clarifying" || status === "Completed");
+}
+
 export function sanitizeFilename(title: string) {
   const safe = title.trim().replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
   return `${safe || "req-to-frd"}.docx`;
