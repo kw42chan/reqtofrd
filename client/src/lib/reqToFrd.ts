@@ -12,6 +12,7 @@ export interface DistributionListEntry {
 }
 
 export interface ClarifyingQuestion { id: string; category: QuestionCategory; question: string; }
+export interface RetainedAnalysis { id: string; requirement: string; gapSummary: string; questions: ClarifyingQuestion[]; answers: Record<string, string>; }
 export interface DocumentMetadata {
   requestId: string;
   region: string;
@@ -53,11 +54,22 @@ export const defaultMetadata: DocumentMetadata = {
 
 export const sampleRequirement = "The treasury operations team needs a controlled payment release workflow for high-value domestic transfers. Payments above a configurable threshold should require dual approval, integrate with the core banking gateway, prevent duplicate submissions, and provide an auditable status trail for operations, compliance, and finance.";
 
+export const requirementSamples = [
+  { label: "Treasury payments", value: sampleRequirement },
+  { label: "Customer onboarding", value: "The retail banking team needs a digital customer onboarding flow that captures identity data, validates documents against approved sources, performs sanctions and PEP screening, routes high-risk cases to compliance, and records an immutable audit trail before an account can be activated." },
+  { label: "Credit review", value: "The corporate lending team needs a credit review workflow that assembles financial statements, applies configurable risk-rating rules, assigns analysts, captures approval decisions, integrates with the credit data warehouse, and prevents facility activation before all required conditions are satisfied." },
+  { label: "Exception management", value: "The operations team needs an exception-management workflow for failed settlement instructions. The solution must receive gateway errors, classify severity, assign ownership, support controlled manual repair, notify downstream systems of resolution, and provide compliance reporting with full timestamps and decision history." },
+] as const;
+
 export function normalizeMarkdown(markdown: string) { return markdown.replace(/\r/g, "").replace(/```(?:markdown)?\s*/gi, "").replace(/\s*```$/g, "").trim(); }
 export function canGenerate(status: WorkflowStatus, questionCount: number) { return questionCount >= 3 && questionCount <= 5 && (status === "Clarifying" || status === "Completed"); }
 export function addDistributionEntry(entries: DistributionListEntry[], id: string): DistributionListEntry[] { return [...entries, { id, department: "Requestor of Business", name: "", title: "", roleType: "Reviewer" }]; }
 export function updateDistributionEntry(entries: DistributionListEntry[], id: string, key: keyof DistributionListEntry, value: string): DistributionListEntry[] { return entries.map(entry => entry.id === id ? { ...entry, [key]: value } as DistributionListEntry : entry); }
 export function beginNewRequirementCycle(metadata: DocumentMetadata) { return { metadata, requirement: "", questions: [] as ClarifyingQuestion[], answers: {} as Record<string, string>, markdown: "" }; }
+export function retainAnalysis(current: RetainedAnalysis[], next: RetainedAnalysis): RetainedAnalysis[] { return next.requirement.trim() && next.questions.length ? [...current, next] : current; }
+export function composeRequirementMarkdown(previousMarkdown: string, nextMarkdown: string, itemNumber: number) { return previousMarkdown ? `${previousMarkdown}\n\n---\n\n# Functional Requirement Item ${itemNumber}\n\n${nextMarkdown}` : nextMarkdown; }
+export function createFreshDocumentState() { return { title: "Untitled FRD", metadata: defaultMetadata, requirement: "", questions: [] as ClarifyingQuestion[], answers: {} as Record<string, string>, markdown: "# Functional Requirement Document\n\nThe remaining FRD sections will appear after generation." }; }
+export function selectRequirementSample(label: string) { return requirementSamples.find(sample => sample.label === label)?.value ?? ""; }
 export function sanitizeFilename(title: string) { const safe = title.trim().replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80); return `${safe || "req-to-frd"}.docx`; }
 export function auditMarkdown(markdown: string, metadata: DocumentMetadata): AuditReport {
   const text = markdown.toLowerCase();

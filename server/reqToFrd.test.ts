@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, defaultMetadata, sanitizeFilename, updateDistributionEntry } from "../client/src/lib/reqToFrd";
+import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, requirementSamples, retainAnalysis, sanitizeFilename, selectRequirementSample, updateDistributionEntry } from "../client/src/lib/reqToFrd";
 
 describe("ReqToFRD audit helpers", () => {
   it("sanitizes document titles into safe docx filenames", () => {
@@ -100,5 +100,45 @@ describe("ReqToFRD dedicated-page pagination", () => {
   it("assembles dedicated cover and sign-off blocks before the FRD body", () => {
     const blocks = dedicatedDocumentBlocks("Payments", defaultMetadata);
     expect(blocks.length).toBeGreaterThan(6);
+  });
+});
+
+describe("ReqToFRD additive requirement workflow", () => {
+  it("offers multiple distinct high-level requirement samples", () => {
+    expect(requirementSamples).toHaveLength(4);
+    expect(new Set(requirementSamples.map(sample => sample.value)).size).toBe(4);
+  });
+
+  it("preserves document metadata when starting the next requirement item", () => {
+    const cycle = beginNewRequirementCycle(defaultMetadata);
+    expect(cycle.metadata.distributionList).toEqual(defaultMetadata.distributionList);
+    expect(cycle.requirement).toBe("");
+  });
+
+  it("appends the next generated requirement without overwriting prior FRD content", () => {
+    const composed = composeRequirementMarkdown("# FR-01\nOriginal", "# FR-02\nAdditional", 2);
+    expect(composed).toContain("# FR-01\nOriginal");
+    expect(composed).toContain("# Functional Requirement Item 2");
+    expect(composed).toContain("# FR-02\nAdditional");
+  });
+
+  it("creates an explicit fresh-document state for the top-left action", () => {
+    const fresh = createFreshDocumentState();
+    expect(fresh.title).toBe("Untitled FRD");
+    expect(fresh.requirement).toBe("");
+    expect(fresh.metadata.requestId).toBe(defaultMetadata.requestId);
+  });
+
+  it("selects an individual named sample and ignores unknown labels", () => {
+    expect(selectRequirementSample("Credit review")).toBe(requirementSamples[2].value);
+    expect(selectRequirementSample("Unknown")).toBe("");
+  });
+
+  it("retains completed clarification state before opening another requirement item", () => {
+    const questions = [{ id: "q1", category: "Business Logic" as const, question: "What is the approval rule?" }];
+    const retained = retainAnalysis([], { id: "analysis-1", requirement: "Add dual approval to payments.", gapSummary: "Approval scope is incomplete.", questions, answers: { q1: "Dual approval above threshold." } });
+    expect(retained).toHaveLength(1);
+    expect(retained[0].answers.q1).toBe("Dual approval above threshold.");
+    expect(retainAnalysis(retained, { id: "empty", requirement: "", gapSummary: "", questions: [], answers: {} })).toEqual(retained);
   });
 });

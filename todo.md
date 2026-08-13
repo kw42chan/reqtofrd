@@ -48,3 +48,16 @@
 - [x] Add pagination helper tests and capture a mobile preview verification after the page-layout update.
 
 - [x] Add automated coverage for preview-side dedicated-page stripping and DOCX cover/sign-off page assembly.
+
+- [x] Make the lower-panel New requirement action append a requirement item without clearing previously analyzed or generated requirements.
+- [x] Add a top-left Generate new Functional Requirement Document action that resets the workspace only after user intent is explicit.
+- [x] Replace the single Use sample action with multiple selectable high-level requirement samples.
+- [x] Add workflow tests and responsive verification for additive requirements, document reset, and sample selection.
+
+- [x] Retain and display prior analyzed requirement items and clarification state when adding another requirement item.
+- [x] Add direct tests for additive FRD composition, new-document reset behavior, and sample selection state.
+- [x] Capture desktop and mobile verification for the additive requirement controls.
+
+- [x] Add direct unit coverage for additive FRD composition, fresh-document reset state, sample selection, and retained-analysis behavior.
+
+- [x] Extract and test the retained-analysis transition used when adding another requirement item.
