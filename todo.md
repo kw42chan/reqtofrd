@@ -61,3 +61,13 @@
 - [x] Add direct unit coverage for additive FRD composition, fresh-document reset state, sample selection, and retained-analysis behavior.
 
 - [x] Extract and test the retained-analysis transition used when adding another requirement item.
+
+- [x] Configure a secure server-side OpenRouter API key and OpenRouter-compatible generation client.
+- [x] Add redacted OpenRouter request lifecycle diagnostics and bounded per-model history.
+- [x] Add model selection controls with a protected verified-model registry and safe test candidates.
+- [x] Run a model probe and a representative mapped clarification/generation request after credentials are supplied.
+- [x] Add unit coverage, desktop/mobile verification, and a checkpoint for the OpenRouter integration.
+
+- [x] Probe `deepseek/deepseek-v4-pro-0813`, validate a mapped clarification response and a representative FRD generation response, and promote it only on success.
+
+- [ ] Save the validated OpenRouter integration checkpoint after the 27-test suite and responsive Model Lab verification.

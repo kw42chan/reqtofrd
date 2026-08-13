@@ -1,9 +1,9 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import { DEFAULT_OPENROUTER_MODEL, getOpenRouterDiagnostics, invokeOpenRouter, markOpenRouterMapped, OPENROUTER_CANDIDATE_MODELS, VERIFIED_OPENROUTER_MODELS } from "./openrouter";
 import {
   ENTERPRISE_AUDIT_FRD_TEMPLATE,
   REQUIRED_QUESTION_CATEGORIES,
@@ -41,6 +41,7 @@ const commonInput = z.object({
   formattingProfile: z.string().default("Banking/Treasury Standard"),
   customGuidelines: z.string().default(""),
   documentTitle: z.string().default("Untitled FRD"),
+  model: z.string().min(3).default(DEFAULT_OPENROUTER_MODEL),
   metadata: metadataSchema,
 });
 
@@ -53,13 +54,6 @@ const clarificationSchema = z.object({
     question: z.string().min(1),
   })).min(3).max(5),
 });
-
-function extractText(response: Awaited<ReturnType<typeof invokeLLM>>) {
-  const content = response.choices?.[0]?.message?.content;
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) return content.map(part => "text" in part ? part.text : "").join("");
-  return "";
-}
 
 function strictDate(value: string) {
   return /^\d{2}-[A-Z]{3}-\d{2}$/.test(value) ? value : "13-AUG-26";
@@ -76,43 +70,29 @@ export const appRouter = router({
     }),
   }),
   reqToFrd: router({
+    models: publicProcedure.query(() => ({ defaultModel: DEFAULT_OPENROUTER_MODEL, verified: VERIFIED_OPENROUTER_MODELS, candidates: OPENROUTER_CANDIDATE_MODELS })),
+    diagnostics: publicProcedure.query(() => getOpenRouterDiagnostics()),
+    probe: publicProcedure.input(z.object({ model: z.string().min(3) })).mutation(async ({ input }) => {
+      const result = await invokeOpenRouter({ model: input.model, operation: "probe", outputMode: "json_object", messages: [{ role: "user", content: "Return exactly this JSON object: {\"ok\":true}" }], responseFormat: { type: "json_object" } });
+      const parsed = JSON.parse(result.content) as { ok?: boolean };
+      if (parsed.ok !== true) throw new Error("OpenRouter probe did not map to the expected response contract.");
+      markOpenRouterMapped(result, "probe", "json_object", { responseKeys: Object.keys(parsed) });
+      return { ok: true, model: result.model, elapsedMs: result.elapsedMs };
+    }),
     analyze: publicProcedure.input(commonInput).mutation(async ({ input }) => {
       const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nANALYSIS INPUT\nRequirement:\n${input.requirement}\n\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) })}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nReturn only the strict CLARIFICATION JSON object. Do not generate the FRD.`;
-      const response = await invokeLLM({
+      const response = await invokeOpenRouter({
+        model: input.model,
+        operation: "clarification",
+        outputMode: "json_object",
         messages: [
           { role: "system", content: "You are an enterprise systems analyst. Return only valid JSON matching the requested contract." },
           { role: "user", content: prompt },
         ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "clarification_response",
-            strict: true,
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                phase: { type: "string", enum: ["CLARIFICATION"] },
-                gap_summary: { type: "string" },
-                questions: {
-                  type: "array", minItems: 3, maxItems: 5,
-                  items: {
-                    type: "object", additionalProperties: false,
-                    properties: {
-                      id: { type: "string", pattern: "^q[1-5]$" },
-                      category: { type: "string", enum: [...REQUIRED_QUESTION_CATEGORIES] },
-                      question: { type: "string" },
-                    },
-                    required: ["id", "category", "question"],
-                  },
-                },
-              },
-              required: ["phase", "gap_summary", "questions"],
-            },
-          },
-        },
+        responseFormat: { type: "json_object" },
       });
-      const parsed = clarificationSchema.parse(JSON.parse(extractText(response)));
+      const parsed = clarificationSchema.parse(JSON.parse(response.content));
+      markOpenRouterMapped(response, "clarification", "json_object", { responseKeys: Object.keys(parsed), storyCount: parsed.questions.length });
       return parsed;
     }),
     generate: publicProcedure.input(commonInput.extend({
@@ -120,14 +100,18 @@ export const appRouter = router({
       answers: z.record(z.string(), z.string()),
     })).mutation(async ({ input }) => {
       const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nGENERATION INPUT\nHigh-Level Requirement:\n${input.requirement}\n\nDocument title: ${input.documentTitle}\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) }, null, 2)}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nClarifying Questions and Answers:\n${input.questions.map(q => `${q.id} [${q.category}] ${q.question}\nAnswer: ${input.answers[q.id] || "No answer provided"}`).join("\n\n")}\n\nGenerate only the complete FRD in Markdown. Use the mandatory six sections, strict tables, exact role labels, DD-MMM-YY dates, and FR-01 style identifiers. Do not add a preamble.`;
-      const response = await invokeLLM({
+      const response = await invokeOpenRouter({
+        model: input.model,
+        operation: "generation",
+        outputMode: "markdown",
         messages: [
           { role: "system", content: "You are an audit-compliant enterprise FRD generator. Produce precise technical Markdown with no filler." },
           { role: "user", content: prompt },
         ],
       });
-      const markdown = extractText(response).replace(/^```(?:markdown)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      const markdown = response.content.replace(/^```(?:markdown)?\s*/i, "").replace(/\s*```$/i, "").trim();
       if (!markdown) throw new Error("The FRD generator returned empty content.");
+      markOpenRouterMapped(response, "generation", "markdown", { responseKeys: ["markdown"] });
       return { markdown };
     }),
   }),
