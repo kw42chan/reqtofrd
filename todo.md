@@ -27,3 +27,13 @@
 - [x] Expand Vitest coverage for workflow validation, template prompt assembly, markdown parsing, DOCX blocks, and analyze/generate procedures.
 - [x] Save the final webdev checkpoint and record the delivered project version.
 - [x] Handle aborted generation explicitly so reset/cancel stays Idle without an error toast.
+
+- [x] Separate document identifiers from participant distribution-list metadata in the UI and generation payload.
+- [x] Add repeatable Requestor of Business, Department Head, and IT Department distribution-list entries with Reviewer, Approver, and Informer role assignment.
+- [x] Update the enterprise FRD prompt so the cover-page sign-off table uses the full distribution list.
+- [x] Support starting a new high-level requirement clarification cycle without resetting the overall workspace metadata.
+- [x] Add tests and responsive verification for distribution-list management and repeat clarification cycles.
+
+- [x] Remove duplicate identifier and legacy participant controls so document metadata is represented only by identifiers, revision history, and the repeatable distribution list.
+- [x] Add focused tests for distribution-list updates and the new-requirement cycle preserving metadata.
+- [x] Verify the refined metadata and distribution-list experience at a mobile viewport.

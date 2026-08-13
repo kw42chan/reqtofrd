@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditMarkdown, defaultMetadata, sanitizeFilename } from "../client/src/lib/reqToFrd";
+import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, defaultMetadata, sanitizeFilename, updateDistributionEntry } from "../client/src/lib/reqToFrd";
 
 describe("ReqToFRD audit helpers", () => {
   it("sanitizes document titles into safe docx filenames", () => {
@@ -23,7 +23,7 @@ describe("ReqToFRD audit helpers", () => {
 });
 
 import { markdownBlocks } from "../client/src/lib/exportDocx";
-import { ENTERPRISE_AUDIT_FRD_TEMPLATE_VERSION, REQUIRED_QUESTION_CATEGORIES } from "../lib/req-to-frd/templates/enterprise-audit-frd";
+import { ENTERPRISE_AUDIT_FRD_TEMPLATE, ENTERPRISE_AUDIT_FRD_TEMPLATE_VERSION, REQUIRED_QUESTION_CATEGORIES } from "../lib/req-to-frd/templates/enterprise-audit-frd";
 
 describe("ReqToFRD enterprise template contracts", () => {
   it("keeps the template versioned and question categories exact", () => {
@@ -57,5 +57,30 @@ describe("ReqToFRD procedure contract", () => {
   it("registers both workflow procedures", () => {
     expect(appRouter.reqToFrd.analyze).toBeDefined();
     expect(appRouter.reqToFrd.generate).toBeDefined();
+  });
+});
+
+describe("ReqToFRD distribution list", () => {
+  it("starts with one controlled participant for each mandatory department", () => {
+    expect(defaultMetadata.distributionList.map(entry => entry.department)).toEqual(["Requestor of Business", "Department Head", "IT Department"]);
+    expect(defaultMetadata.distributionList.map(entry => entry.roleType)).toEqual(["Reviewer", "Approver", "Informer"]);
+  });
+
+  it("requires the generated cover-page table to include every supplied distribution participant", () => {
+    expect(ENTERPRISE_AUDIT_FRD_TEMPLATE).toContain("Include every supplied Distribution List entry in this table.");
+  });
+
+  it("adds and updates repeatable distribution-list participants", () => {
+    const added = addDistributionEntry(defaultMetadata.distributionList, "dist-extra");
+    const updated = updateDistributionEntry(added, "dist-extra", "roleType", "Approver");
+    expect(updated).toHaveLength(4);
+    expect(updated[3]).toMatchObject({ id: "dist-extra", department: "Requestor of Business", roleType: "Approver" });
+  });
+
+  it("starts a new requirement cycle without replacing metadata", () => {
+    const cycle = beginNewRequirementCycle(defaultMetadata);
+    expect(cycle.metadata).toBe(defaultMetadata);
+    expect(cycle.requirement).toBe("");
+    expect(cycle.questions).toEqual([]);
   });
 });

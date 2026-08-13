@@ -10,25 +10,29 @@ import {
 } from "../lib/req-to-frd/templates/enterprise-audit-frd";
 
 const roleType = z.enum(["Reviewer", "Approver", "Informer"]);
+const distributionDepartment = z.enum(["Requestor of Business", "Department Head", "IT Department"]);
 const questionCategory = z.enum(REQUIRED_QUESTION_CATEGORIES);
 const metadataSchema = z.object({
   requestId: z.string().default("REQ-0001"),
   region: z.string().default("Global"),
   system: z.string().default("Target System"),
   enhancementTitle: z.string().default("Requirement Enhancement"),
-  requestor: z.string().default("Requestor of Business"),
-  departmentHead: z.string().default("Department Head of Requestor of Business"),
-  itDepartment: z.string().default("IT Department"),
+  distributionList: z.array(z.object({
+    id: z.string(),
+    department: distributionDepartment,
+    name: z.string(),
+    title: z.string(),
+    roleType,
+  })).min(3).default([
+    { id: "dist-requestor", department: "Requestor of Business", name: "", title: "Requestor of Business", roleType: "Reviewer" },
+    { id: "dist-department-head", department: "Department Head", name: "", title: "Department Head of Requestor of Business", roleType: "Approver" },
+    { id: "dist-it", department: "IT Department", name: "", title: "IT Department", roleType: "Informer" },
+  ]),
   revisionVersion: z.string().default("1.0"),
   revisionDescription: z.string().default("Initial draft"),
   updatedBy: z.string().default("ReqToFRD Analyst"),
   revisionDate: z.string().default("13-AUG-26"),
   revisionRemarks: z.string().default("Generated from approved requirement input"),
-  signOffRoles: z.object({ requestor: roleType, departmentHead: roleType, itDepartment: roleType }).default({
-    requestor: "Reviewer",
-    departmentHead: "Approver",
-    itDepartment: "Informer",
-  }),
 });
 
 const commonInput = z.object({

@@ -36,6 +36,7 @@ Render Section 1 as the Document Cover Page with the following exact layout:
 - Distribution & Sign-off Table (Strict 4-Column Table):
   Columns: | Name | Title | Department | Role Type |
   Allowed Role Types: Reviewer | Approver | Informer
+  Include every supplied Distribution List entry in this table. Do not reduce the table to only the three mandatory placeholders when additional participants are supplied.
   Mandatory Title Placeholders:
   1. Requestor of Business
   2. Department Head of Requestor of Business

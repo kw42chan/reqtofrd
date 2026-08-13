@@ -1,76 +1,78 @@
 export type WorkflowStatus = "Idle" | "Clarifying" | "Generating" | "Completed";
 export type QuestionCategory = "Business Logic" | "Integration" | "Scope Boundary" | "Exception Handling";
 export type RoleType = "Reviewer" | "Approver" | "Informer";
+export type DistributionDepartment = "Requestor of Business" | "Department Head" | "IT Department";
 
-export interface ClarifyingQuestion {
+export interface DistributionListEntry {
   id: string;
-  category: QuestionCategory;
-  question: string;
+  department: DistributionDepartment;
+  name: string;
+  title: string;
+  roleType: RoleType;
 }
 
+export interface ClarifyingQuestion { id: string; category: QuestionCategory; question: string; }
 export interface DocumentMetadata {
   requestId: string;
   region: string;
   system: string;
   enhancementTitle: string;
-  requestor: string;
-  departmentHead: string;
-  itDepartment: string;
+  distributionList: DistributionListEntry[];
   revisionVersion: string;
   revisionDescription: string;
   updatedBy: string;
   revisionDate: string;
   revisionRemarks: string;
-  signOffRoles: { requestor: RoleType; departmentHead: RoleType; itDepartment: RoleType };
 }
-
-export interface AuditItem { label: string; passed: boolean; detail: string }
-export interface AuditReport { score: number; items: AuditItem[]; gaps: string[] }
+export interface AuditItem { label: string; passed: boolean; detail: string; }
+export interface AuditReport { score: number; items: AuditItem[]; gaps: string[]; }
 
 export const formattingProfiles = [
-  { id: "ieee-830", label: "IEEE 830", description: "Classic requirements specification with formal traceability." },
-  { id: "agile-enterprise", label: "Agile Enterprise", description: "Outcome-led requirements with acceptance criteria and delivery increments." },
-  { id: "banking-treasury", label: "Banking/Treasury Standard", description: "Control-minded language for regulated financial workflows." },
-  { id: "custom", label: "Custom", description: "Apply your own formatting and alignment rules." },
+  { id: "ieee-830", label: "IEEE 830", description: "Formal specification and traceability." },
+  { id: "agile-enterprise", label: "Agile Enterprise", description: "Outcome-led requirements and acceptance criteria." },
+  { id: "banking-treasury", label: "Banking/Treasury Standard", description: "Controls for regulated financial workflows." },
+  { id: "custom", label: "Custom", description: "Your formatting and governance guidance." },
 ] as const;
 
 export const defaultMetadata: DocumentMetadata = {
-  requestId: "REQ-0001", region: "Global", system: "Treasury Operations Platform", enhancementTitle: "Payment Workflow Enhancement",
-  requestor: "Requestor of Business", departmentHead: "Department Head of Requestor of Business", itDepartment: "IT Department",
-  revisionVersion: "1.0", revisionDescription: "Initial draft", updatedBy: "ReqToFRD Analyst", revisionDate: "13-AUG-26", revisionRemarks: "Generated from approved requirement input",
-  signOffRoles: { requestor: "Reviewer", departmentHead: "Approver", itDepartment: "Informer" },
+  requestId: "REQ-0001",
+  region: "Global",
+  system: "Treasury Operations Platform",
+  enhancementTitle: "Payment Workflow Enhancement",
+  distributionList: [
+    { id: "dist-requestor", department: "Requestor of Business", name: "", title: "Requestor of Business", roleType: "Reviewer" },
+    { id: "dist-department-head", department: "Department Head", name: "", title: "Department Head of Requestor of Business", roleType: "Approver" },
+    { id: "dist-it", department: "IT Department", name: "", title: "IT Department", roleType: "Informer" },
+  ],
+  revisionVersion: "1.0",
+  revisionDescription: "Initial draft",
+  updatedBy: "ReqToFRD Analyst",
+  revisionDate: "13-AUG-26",
+  revisionRemarks: "Generated from approved requirement input",
 };
 
-export const sampleRequirement = `The treasury operations team needs a controlled payment release workflow for high-value domestic transfers. Payments above a configurable threshold should require dual approval, integrate with the core banking gateway, prevent duplicate submissions, and provide an auditable status trail for operations, compliance, and finance.`;
+export const sampleRequirement = "The treasury operations team needs a controlled payment release workflow for high-value domestic transfers. Payments above a configurable threshold should require dual approval, integrate with the core banking gateway, prevent duplicate submissions, and provide an auditable status trail for operations, compliance, and finance.";
 
-export function normalizeMarkdown(markdown: string) {
-  return markdown.replace(/\r/g, "").replace(/```(?:markdown)?\s*/gi, "").replace(/\s*```$/g, "").replace(/^\s+|\s+$/g, "");
-}
-
-export function canGenerate(status: WorkflowStatus, questionCount: number) {
-  return questionCount >= 3 && questionCount <= 5 && (status === "Clarifying" || status === "Completed");
-}
-
-export function sanitizeFilename(title: string) {
-  const safe = title.trim().replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-  return `${safe || "req-to-frd"}.docx`;
-}
-
+export function normalizeMarkdown(markdown: string) { return markdown.replace(/\r/g, "").replace(/```(?:markdown)?\s*/gi, "").replace(/\s*```$/g, "").trim(); }
+export function canGenerate(status: WorkflowStatus, questionCount: number) { return questionCount >= 3 && questionCount <= 5 && (status === "Clarifying" || status === "Completed"); }
+export function addDistributionEntry(entries: DistributionListEntry[], id: string): DistributionListEntry[] { return [...entries, { id, department: "Requestor of Business", name: "", title: "", roleType: "Reviewer" }]; }
+export function updateDistributionEntry(entries: DistributionListEntry[], id: string, key: keyof DistributionListEntry, value: string): DistributionListEntry[] { return entries.map(entry => entry.id === id ? { ...entry, [key]: value } as DistributionListEntry : entry); }
+export function beginNewRequirementCycle(metadata: DocumentMetadata) { return { metadata, requirement: "", questions: [] as ClarifyingQuestion[], answers: {} as Record<string, string>, markdown: "" }; }
+export function sanitizeFilename(title: string) { const safe = title.trim().replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80); return `${safe || "req-to-frd"}.docx`; }
 export function auditMarkdown(markdown: string, metadata: DocumentMetadata): AuditReport {
   const text = markdown.toLowerCase();
   const checks: Array<[string, boolean, string]> = [
-    ["Cover page", /cover page|request id|demand id/.test(text), "Includes document-control metadata."],
-    ["Revision history", /revision history/.test(text) && /version number/.test(text), "Includes versioning and revision tracking."],
-    ["Executive summary & scope", /executive summary/.test(text) && /scope boundary/.test(text), "Defines background and boundaries."],
-    ["FR-01 identifiers", /fr-0?1/.test(text), "Uses the required FR-01 numbering pattern."],
-    ["Required FR subsections", /input parameters|trigger conditions/.test(text) && /processing logic|validation rules/.test(text) && /exception/.test(text), "Covers inputs, processing, outputs, and exceptions."],
-    ["Integration interfaces", /integration/.test(text) && /api|batch|protocol|payload/.test(text), "Describes interface boundaries and formats."],
-    ["Failure and retry handling", /retry|failure handling|reprocess/.test(text), "Addresses integration failure recovery."],
-    ["Out of scope", /out of scope/.test(text), "Explicitly lists excluded capabilities."],
-    ["DD-MMM-YY revision date", /^\d{2}-[A-Z]{3}-\d{2}$/i.test(metadata.revisionDate), "Revision date uses the required format."],
-    ["Valid sign-off roles", [metadata.signOffRoles.requestor, metadata.signOffRoles.departmentHead, metadata.signOffRoles.itDepartment].every(role => ["Reviewer", "Approver", "Informer"].includes(role)), "Uses the controlled role vocabulary."],
+    ["Cover page", /cover page|request id|demand id/.test(text), "Includes document control."],
+    ["Revision history", /revision history/.test(text) && /version number/.test(text), "Includes version tracking."],
+    ["Executive summary & scope", /executive summary/.test(text) && /scope boundary/.test(text), "Defines boundaries."],
+    ["FR-01 identifiers", /fr-0?1/.test(text), "Uses required FR numbering."],
+    ["Required FR subsections", /input parameters|trigger conditions/.test(text) && /processing logic|validation rules/.test(text) && /exception/.test(text), "Covers inputs, processing, outputs, exceptions."],
+    ["Integration interfaces", /integration/.test(text) && /api|batch|protocol|payload/.test(text), "Describes interfaces."],
+    ["Failure and retry handling", /retry|failure handling|reprocess/.test(text), "Addresses recovery."],
+    ["Out of scope", /out of scope/.test(text), "Lists exclusions."],
+    ["DD-MMM-YY revision date", /^\d{2}-[A-Z]{3}-\d{2}$/i.test(metadata.revisionDate), "Uses controlled date format."],
+    ["Distribution list", metadata.distributionList.length >= 3 && metadata.distributionList.every(entry => ["Reviewer", "Approver", "Informer"].includes(entry.roleType)), "Includes controlled participants and roles."],
   ];
   const items = checks.map(([label, passed, detail]) => ({ label, passed, detail }));
-  const gaps = items.filter(item => !item.passed).map(item => `Add or verify ${item.label.toLowerCase()}.`);
-  return { score: Math.round((items.filter(item => item.passed).length / items.length) * 100), items, gaps };
+  return { score: Math.round(items.filter(item => item.passed).length / items.length * 100), items, gaps: items.filter(item => !item.passed).map(item => `Add or verify ${item.label.toLowerCase()}.`) };
 }
