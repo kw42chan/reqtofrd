@@ -41,11 +41,16 @@ describe("OpenRouter diagnostics", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
     await expect(invokeOpenRouter({ operation: "generation", outputMode: "markdown", messages: [{ role: "user", content: "generate" }], retryDelayMs: 0 })).resolves.toMatchObject({ content: "# FRD" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    const secondBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(firstBody).toMatchObject({ max_tokens: 1800, provider: { sort: "throughput" } });
+    expect(secondBody).toMatchObject({ max_tokens: 1200, provider: { sort: "throughput" } });
+    expect(secondBody.messages[0].content).toContain("concise mode");
   });
 
   it("reports a clear recovery error after both bounded timeout attempts fail", async () => {
     global.fetch = vi.fn().mockRejectedValue(new DOMException("The operation was aborted due to timeout", "TimeoutError")) as unknown as typeof fetch;
-    await expect(invokeOpenRouter({ operation: "generation", outputMode: "markdown", messages: [{ role: "user", content: "generate" }], retryDelayMs: 0 })).rejects.toThrow("timed out after two bounded attempts");
-    expect(getOpenRouterDiagnostics().requestLifecycle.at(-1)?.errorType).toBe("timeout");
+    await expect(invokeOpenRouter({ operation: "generation", outputMode: "markdown", messages: [{ role: "user", content: "generate" }], retryDelayMs: 0 })).rejects.toThrow("standard and concise retry");
+    expect(getOpenRouterDiagnostics().requestLifecycle.at(-1)).toMatchObject({ errorType: "timeout", attempt: 2, maxTokens: 1200, providerSort: "throughput" });
   });
 });

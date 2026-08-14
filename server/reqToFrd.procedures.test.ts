@@ -95,13 +95,13 @@ describe("ReqToFRD procedures", () => {
   });
 
   it("surfaces the actionable timeout recovery message through clarification and generation mutations", async () => {
-    const timeout = new Error("OpenRouter timed out after two bounded attempts. Retry generation or choose a faster model.");
+    const timeout = new Error("OpenRouter generation timed out after a standard and concise retry. Your clarification answers are preserved; retry generation or choose a faster model.");
     vi.mocked(invokeOpenRouter).mockRejectedValueOnce(timeout).mockRejectedValueOnce(timeout);
-    await expect(appRouter.createCaller(ctx).reqToFrd.analyze(input)).rejects.toThrow("Retry generation or choose a faster model");
+    await expect(appRouter.createCaller(ctx).reqToFrd.analyze(input)).rejects.toThrow("standard and concise retry");
     await expect(appRouter.createCaller(ctx).reqToFrd.generate({ ...input, questions: [
       { id: "q1", category: "Business Logic", question: "Rule?" },
       { id: "q2", category: "Integration", question: "API?" },
       { id: "q3", category: "Scope Boundary", question: "Scope?" },
-    ], answers: {} })).rejects.toThrow("Retry generation or choose a faster model");
+    ], answers: {} })).rejects.toThrow("clarification answers are preserved");
   });
 });

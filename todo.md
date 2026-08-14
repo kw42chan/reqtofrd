@@ -127,4 +127,12 @@
 - [x] Verify configured and session-only OpenRouter API keys are used only for authorized server-side OpenRouter probe, clarification, and FRD generation requests, and never exposed in diagnostics or client responses.
 - [x] Confirm generated OpenRouter Markdown is normalized, stored, and rendered into the FRD preview without credential exposure.
 - [x] Add or update regression coverage and perform a live key-backed generation-and-rendering verification.
-- [ ] Save and deliver the verified OpenRouter generation/rendering checkpoint.
+- [x] Save and deliver the verified OpenRouter generation/rendering checkpoint.
+
+- [x] Inspect the live OpenRouter timeout diagnostics and generation request budget for the reported two-attempt timeout.
+- [x] Implement a bounded recovery path that preserves the selected model and user requirement while avoiding repeated long generation timeouts.
+- [x] Add regression coverage and browser verification for timeout recovery and actionable in-product status.
+- [x] Perform a controlled browser timeout simulation to confirm the concise-retry message is shown and clarification state remains recoverable.
+- [x] Display a persistent, retryable generation-recovery notice that preserves the actionable timeout guidance after a request failure.
+- [x] Repeat the controlled generation-timeout simulation after the persistent notice update and verify the real failed state shows the recovery alert with preserved answers.
+- [ ] Save and deliver the verified OpenRouter timeout recovery checkpoint.
