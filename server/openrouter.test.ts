@@ -24,6 +24,16 @@ describe("OpenRouter diagnostics", () => {
     expect(JSON.stringify(getOpenRouterDiagnostics())).not.toContain("session-only-key-1234567890");
   });
 
+  it("uses the configured server key for generation when no session override is supplied", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "configured-project-key-1234567890");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: "# Functional Requirements\n\n### FR-01" } }] }), { status: 200 }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    await invokeOpenRouter({ operation: "generation", outputMode: "markdown", messages: [{ role: "user", content: "Generate an FRD" }] });
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer configured-project-key-1234567890");
+    expect(JSON.stringify(getOpenRouterDiagnostics())).not.toContain("configured-project-key-1234567890");
+  });
+
   it("retries a transient timeout once and returns the recovered model response", async () => {
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new DOMException("The operation was aborted due to timeout", "TimeoutError"))

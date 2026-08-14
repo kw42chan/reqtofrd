@@ -122,4 +122,9 @@
 - [x] Reuse normalized item-body content for rendered preview and DOCX export, preserving one document-level cover and sign-off page.
 - [x] Add regression tests and browser verification for duplicate-control stripping in saved and appended requirement items.
 - [x] Perform browser-level verification that an appended requirement item remains body-only under the existing FRD session with no duplicate cover or sign-off content.
-- [ ] Save and deliver the verified single-document rendering checkpoint.
+- [x] Save and deliver the verified single-document rendering checkpoint.
+
+- [x] Verify configured and session-only OpenRouter API keys are used only for authorized server-side OpenRouter probe, clarification, and FRD generation requests, and never exposed in diagnostics or client responses.
+- [x] Confirm generated OpenRouter Markdown is normalized, stored, and rendered into the FRD preview without credential exposure.
+- [x] Add or update regression coverage and perform a live key-backed generation-and-rendering verification.
+- [ ] Save and deliver the verified OpenRouter generation/rendering checkpoint.
