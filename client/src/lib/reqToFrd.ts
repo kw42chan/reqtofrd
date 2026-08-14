@@ -1,3 +1,5 @@
+import { stripDocumentControlSections } from "./documentControl";
+
 export type WorkflowStatus = "Idle" | "Clarifying" | "Generating" | "Completed";
 export type QuestionCategory = "Business Logic" | "Integration" | "Scope Boundary" | "Exception Handling";
 export type RoleType = "Reviewer" | "Approver" | "Informer";
@@ -69,16 +71,17 @@ export function addDistributionEntry(entries: DistributionListEntry[], id: strin
 export function updateDistributionEntry(entries: DistributionListEntry[], id: string, key: keyof DistributionListEntry, value: string): DistributionListEntry[] { return entries.map(entry => entry.id === id ? { ...entry, [key]: value } as DistributionListEntry : entry); }
 export function beginNewRequirementCycle(metadata: DocumentMetadata) { return { metadata, requirement: "", questions: [] as ClarifyingQuestion[], answers: {} as Record<string, string>, markdown: "" }; }
 export function retainAnalysis(current: RetainedAnalysis[], next: RetainedAnalysis): RetainedAnalysis[] { return next.requirement.trim() && next.questions.length ? [...current, next] : current; }
-export function composeRequirementMarkdown(previousMarkdown: string, nextMarkdown: string, itemNumber: number) { return previousMarkdown ? `${previousMarkdown}\n\n---\n\n# Functional Requirement Item ${itemNumber}\n\n${nextMarkdown}` : nextMarkdown; }
+export function normalizeRequirementItemMarkdown(markdown: string) { return stripDocumentControlSections(normalizeMarkdown(markdown)); }
+export function composeRequirementMarkdown(previousMarkdown: string, nextMarkdown: string, itemNumber: number) { const nextItem = normalizeRequirementItemMarkdown(nextMarkdown); return previousMarkdown ? `${previousMarkdown}\n\n---\n\n# Functional Requirement Item ${itemNumber}\n\n${nextItem}` : nextItem; }
 export function composeRequirementDocument(items: GeneratedRequirementItem[], fallbackMarkdown = "") { return items.reduce((document, item, index) => composeRequirementMarkdown(document, item.markdown, index + 1), fallbackMarkdown && !items.length ? fallbackMarkdown : ""); }
-export function updateGeneratedRequirementItem(items: GeneratedRequirementItem[], id: string, markdown: string): GeneratedRequirementItem[] { return items.map(item => item.id === id ? { ...item, markdown } : item); }
+export function updateGeneratedRequirementItem(items: GeneratedRequirementItem[], id: string, markdown: string): GeneratedRequirementItem[] { return items.map(item => item.id === id ? { ...item, markdown: normalizeRequirementItemMarkdown(markdown) } : item); }
 export function createFreshDocumentState() { return { title: "Untitled FRD", metadata: defaultMetadata, requirement: "", questions: [] as ClarifyingQuestion[], answers: {} as Record<string, string>, markdown: "# Functional Requirement Document\n\nThe remaining FRD sections will appear after generation." }; }
 export function selectRequirementSample(label: string) { return requirementSamples.find(sample => sample.label === label)?.value ?? ""; }
 export function sanitizeFilename(title: string) { const safe = title.trim().replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80); return `${safe || "req-to-frd"}.docx`; }
 export function auditMarkdown(markdown: string, metadata: DocumentMetadata): AuditReport {
   const text = markdown.toLowerCase();
   const checks: Array<[string, boolean, string]> = [
-    ["Cover page", /cover page|request id|demand id/.test(text), "Includes document control."],
+    ["Cover page", Boolean(metadata.requestId.trim()), "Rendered from controlled document metadata."],
     ["Revision history", /revision history/.test(text) && /version number/.test(text), "Includes version tracking."],
     ["Executive summary & scope", /executive summary/.test(text) && /scope boundary/.test(text), "Defines boundaries."],
     ["FR-01 identifiers", /fr-0?1/.test(text), "Uses required FR numbering."],

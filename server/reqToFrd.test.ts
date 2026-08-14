@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, composeRequirementDocument, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, requirementSamples, retainAnalysis, sanitizeFilename, selectRequirementSample, updateDistributionEntry, updateGeneratedRequirementItem } from "../client/src/lib/reqToFrd";
+import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, composeRequirementDocument, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, normalizeRequirementItemMarkdown, requirementSamples, retainAnalysis, sanitizeFilename, selectRequirementSample, updateDistributionEntry, updateGeneratedRequirementItem } from "../client/src/lib/reqToFrd";
 
 describe("ReqToFRD audit helpers", () => {
   it("sanitizes document titles into safe docx filenames", () => {
@@ -97,6 +97,14 @@ describe("ReqToFRD dedicated-page pagination", () => {
     expect(stripDedicatedPages(markdown)).toBe("# Revision History\nVersion Number");
   });
 
+  it("removes variant document-control headings while preserving the requirement-session body", () => {
+    const markdown = "# MANDATORY SECTION 1: COVER PAGE\nRequest metadata\n\n## Distribution and Sign-off Table\n| Name | Role |\n| --- | --- |\n| A | Reviewer |\n\n## Revision History\nVersion Number\n\n## Functional Requirements\n### FR-01\nBody requirement";
+    const itemBody = normalizeRequirementItemMarkdown(markdown);
+    expect(itemBody).not.toMatch(/cover page|distribution.*sign/i);
+    expect(itemBody).toContain("Revision History");
+    expect(itemBody).toContain("FR-01");
+  });
+
   it("assembles dedicated cover and sign-off blocks before the FRD body", () => {
     const blocks = dedicatedDocumentBlocks("Payments", defaultMetadata);
     expect(blocks.length).toBeGreaterThan(6);
@@ -158,6 +166,18 @@ describe("ReqToFRD additive requirement workflow", () => {
     expect(document).toContain("Edited first requirement");
     expect(document).toContain("Second requirement");
     expect(document).not.toContain("Original first requirement");
+  });
+
+  it("keeps an edited requirement within the existing document session without duplicate cover or sign-off content", () => {
+    const items = [
+      { id: "req-1", requirement: "First", markdown: "### FR-01\nOriginal first requirement" },
+      { id: "req-2", requirement: "Second", markdown: "### FR-02\nSecond requirement" },
+    ];
+    const edited = updateGeneratedRequirementItem(items, "req-2", "# Cover Page\nDuplicate controls\n# Distribution & Sign-off Table\n| Name | Role |\n| --- | --- |\n| A | Reviewer |\n# Functional Requirements\n### FR-02\nEdited second requirement");
+    const document = composeRequirementDocument(edited);
+    expect(document).toContain("Original first requirement");
+    expect(document).toContain("Edited second requirement");
+    expect(document).not.toMatch(/cover page|distribution.*sign/i);
   });
 
   it("creates an explicit fresh-document state for the top-left action", () => {

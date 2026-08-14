@@ -121,8 +121,13 @@ export const appRouter = router({
     generate: publicProcedure.input(commonInput.extend({
       questions: generationQuestionsSchema,
       answers: z.record(z.string(), z.string()),
+      generationScope: z.enum(["document", "requirement-item"]).default("document"),
+      itemNumber: z.number().int().min(1).default(1),
     })).mutation(async ({ input }) => {
-      const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nGENERATION INPUT\nHigh-Level Requirement:\n${input.requirement}\n\nDocument title: ${input.documentTitle}\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) }, null, 2)}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nClarifying Questions and Answers:\n${input.questions.map(q => `${q.id} [${q.category}] ${q.question}\nAnswer: ${input.answers[q.id] || "No answer provided"}`).join("\n\n")}\n\nGenerate only the complete FRD in Markdown. Use the mandatory six sections, strict tables, exact role labels, DD-MMM-YY dates, and FR-01 style identifiers. Do not add a preamble.`;
+      const generationInstruction = input.generationScope === "requirement-item"
+        ? `This is Functional Requirement Item ${input.itemNumber}, appended to an existing FRD session. Generate only the body sections relevant to this new item. Do not emit a Cover Page, MANDATORY SECTION 1, Distribution & Sign-off Table, document title, request metadata, or sign-off participants. Start with the functional requirement content and continue FR numbering without replacing prior items.`
+        : "Generate the complete FRD body in Markdown. The application renders the authoritative Cover Page and Distribution & Sign-off Table from controlled metadata, so do not emit either document-control section in your Markdown. Include the remaining mandatory body sections, strict tables where needed, DD-MMM-YY dates, and FR-01 style identifiers.";
+      const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nGENERATION INPUT\nHigh-Level Requirement:\n${input.requirement}\n\nDocument title: ${input.documentTitle}\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) }, null, 2)}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nClarifying Questions and Answers:\n${input.questions.map(q => `${q.id} [${q.category}] ${q.question}\nAnswer: ${input.answers[q.id] || "No answer provided"}`).join("\n\n")}\n\n${generationInstruction}\nDo not add a preamble.`;
       const response = await invokeOpenRouter({
         apiKey: input.openRouterApiKey,
         model: input.model,

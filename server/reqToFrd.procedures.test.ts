@@ -58,6 +58,19 @@ describe("ReqToFRD procedures", () => {
     expect(invokeOpenRouter).toHaveBeenCalledWith(expect.objectContaining({ model: "openai/gpt-4o-mini", operation: "generation" }));
   });
 
+  it("instructs appended requirement generation to remain in the existing session without document-control sections", async () => {
+    vi.mocked(invokeOpenRouter).mockResolvedValueOnce(response("## Functional Requirements\n\n### FR-02\n\nBody-only requirement") as any);
+    await appRouter.createCaller(ctx).reqToFrd.generate({ ...input, generationScope: "requirement-item", itemNumber: 2, questions: [
+      { id: "q1", category: "Business Logic", question: "What threshold applies?" },
+      { id: "q2", category: "Integration", question: "Which gateway contract is authoritative?" },
+      { id: "q3", category: "Scope Boundary", question: "Which payment types are excluded?" },
+    ], answers: {} });
+    const call = vi.mocked(invokeOpenRouter).mock.calls[0]?.[0];
+    expect(call?.messages[1]?.content).toContain("Functional Requirement Item 2, appended to an existing FRD session");
+    expect(call?.messages[1]?.content).toContain("Do not emit a Cover Page");
+    expect(call?.messages[1]?.content).toContain("Do not emit a Cover Page, MANDATORY SECTION 1, Distribution & Sign-off Table");
+  });
+
   it("accepts a stale oversized generation payload by capping and reindexing it before prompt assembly", async () => {
     vi.mocked(invokeOpenRouter).mockResolvedValueOnce(response("# Functional Requirements\n\n### FR-01") as any);
     const questions = ["Business Logic", "Integration", "Scope Boundary", "Exception Handling", "Business Logic", "Integration"].map((category, index) => ({ id: `q${index + 1}`, category, question: `Question ${index + 1}?` }));

@@ -1,18 +1,10 @@
 import { AlignmentType, BorderStyle, Document, HeadingLevel, Packer, PageBreak, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun } from "docx";
 import type { DocumentMetadata } from "./reqToFrd";
 import { sanitizeFilename } from "./reqToFrd";
+import { stripDocumentControlSections } from "./documentControl";
 
 export function stripDedicatedMarkdown(markdown: string) {
-  const lines = markdown.split("\n");
-  const retained: string[] = [];
-  let skipping = false;
-  for (const line of lines) {
-    const heading = line.replace(/^#+\s*/, "").toLowerCase();
-    if (heading.includes("cover page") || heading.includes("distribution & sign-off") || heading.includes("distribution and sign-off")) { skipping = true; continue; }
-    if (skipping && /^#+\s+/.test(line)) skipping = false;
-    if (!skipping) retained.push(line);
-  }
-  return retained.join("\n").trim();
+  return stripDocumentControlSections(markdown);
 }
 
 function inlineRuns(text: string) {

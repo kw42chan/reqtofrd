@@ -115,4 +115,11 @@
 - [x] Perform and record a live Functional Requirement Item edit, save it, and confirm the rendered FRD refreshes with the revised content.
 
 - [x] Perform browser-level Edit item → Save to FRD verification and confirm the rendered combined FRD updates with the edited text.
-- [ ] Save the verified post-render editing checkpoint.
+- [x] Save the verified post-render editing checkpoint.
+
+- [x] Normalize generated and edited Functional Requirement Item Markdown so Cover Page and Distribution & Sign-off content never repeats within an item.
+- [x] Generate appended requirement items in body-only mode under the existing FRD session, without document-control sections.
+- [x] Reuse normalized item-body content for rendered preview and DOCX export, preserving one document-level cover and sign-off page.
+- [x] Add regression tests and browser verification for duplicate-control stripping in saved and appended requirement items.
+- [x] Perform browser-level verification that an appended requirement item remains body-only under the existing FRD session with no duplicate cover or sign-off content.
+- [ ] Save and deliver the verified single-document rendering checkpoint.
