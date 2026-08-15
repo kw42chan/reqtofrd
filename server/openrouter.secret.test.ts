@@ -10,8 +10,11 @@ describe("OpenRouter credential", () => {
       signal: AbortSignal.timeout(10_000),
     });
 
-    expect(response.status, "OpenRouter models request should authenticate").toBe(200);
-    const body = await response.json() as { data?: unknown[] };
+    expect(
+      response.status,
+      "OpenRouter models request should authenticate"
+    ).toBe(200);
+    const body = (await response.json()) as { data?: unknown[] };
     expect(Array.isArray(body.data)).toBe(true);
   }, 15_000);
 });

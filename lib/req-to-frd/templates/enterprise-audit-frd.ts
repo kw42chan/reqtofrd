@@ -91,12 +91,17 @@ export const REQUIRED_QUESTION_CATEGORIES = [
   "Exception Handling",
 ] as const;
 
-export const REQUIRED_SIGN_OFF_ROLES = ["Reviewer", "Approver", "Informer"] as const;
+export const REQUIRED_SIGN_OFF_ROLES = [
+  "Reviewer",
+  "Approver",
+  "Informer",
+] as const;
 
 export const ENTERPRISE_TEMPLATE = {
   id: "enterprise-audit-frd",
   name: "Enterprise Audit-Compliant FRD",
-  description: "Strict cover page, revision history, FR identifiers, integration controls, and scope boundaries.",
+  description:
+    "Strict cover page, revision history, FR identifiers, integration controls, and scope boundaries.",
   version: ENTERPRISE_AUDIT_FRD_TEMPLATE_VERSION,
   prompt: ENTERPRISE_AUDIT_FRD_TEMPLATE,
 } as const;

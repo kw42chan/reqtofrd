@@ -1,7 +1,25 @@
 import { useMemo, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
-import { Check, Clipboard, Download, FileText, Loader2, Play, Plus, RotateCcw, ShieldCheck, Sparkles, Trash2, Wand2 } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Check,
+  Clipboard,
+  Download,
+  FileText,
+  Loader2,
+  Play,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  Wand2,
+} from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,105 +27,1274 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { addDistributionEntry, auditMarkdown, beginNewRequirementCycle, ClarifyingQuestion, composeRequirementDocument, composeRequirementMarkdown, createFreshDocumentState, defaultMetadata, DistributionListEntry, DocumentMetadata, formattingProfiles, GeneratedRequirementItem, normalizeClarifyingQuestions, normalizeRequirementItemMarkdown, requirementSamples, RetainedAnalysis, retainAnalysis, selectRequirementSample, updateDistributionEntry, updateGeneratedRequirementItem, WorkflowStatus } from "@/lib/reqToFrd";
+import {
+  addDistributionEntry,
+  auditMarkdown,
+  beginNewRequirementCycle,
+  ClarifyingQuestion,
+  composeRequirementDocument,
+  composeRequirementMarkdown,
+  createFreshDocumentState,
+  defaultMetadata,
+  DistributionListEntry,
+  DocumentMetadata,
+  formattingProfiles,
+  GeneratedRequirementItem,
+  normalizeClarifyingQuestions,
+  normalizeRequirementItemMarkdown,
+  requirementSamples,
+  RetainedAnalysis,
+  retainAnalysis,
+  selectRequirementSample,
+  updateDistributionEntry,
+  updateGeneratedRequirementItem,
+  WorkflowStatus,
+} from "@/lib/reqToFrd";
 import { downloadDocx } from "@/lib/exportDocx";
 import { splitFunctionalRequirementPages } from "@/lib/previewPagination";
 
-const initialMarkdown = "# Functional Requirement Document\n\nThe remaining FRD sections will appear after generation.";
-const statusClass: Record<WorkflowStatus, string> = { Idle: "bg-slate-100 text-slate-600", Clarifying: "bg-amber-50 text-amber-700", Generating: "bg-cyan-50 text-cyan-700", Completed: "bg-emerald-50 text-emerald-700" };
+const initialMarkdown =
+  "# Functional Requirement Document\n\nThe remaining FRD sections will appear after generation.";
+const statusClass: Record<WorkflowStatus, string> = {
+  Idle: "bg-slate-100 text-slate-600",
+  Clarifying: "bg-amber-50 text-amber-700",
+  Generating: "bg-cyan-50 text-cyan-700",
+  Completed: "bg-emerald-50 text-emerald-700",
+};
 const multiItemPreviewFixture: GeneratedRequirementItem[] = [
-  { id: "fixture-1", requirement: "Payment approval", markdown: "# Functional Requirements\n\n### FR-01 Payment approval\n\n**Input Parameters & Trigger Conditions**\n- A payment instruction is submitted above the approval threshold.\n\n**Processing Logic & Validation Rules**\n- Verify maker/checker segregation and approval limit.\n\n**Output / System Response**\n- Record approval status and audit reference.\n\n**Exception & Error Handling**\n- Reject duplicate approval attempts." },
-  { id: "fixture-2", requirement: "Gateway recovery", markdown: "# Functional Requirements\n\n### FR-02 Gateway recovery\n\n**Input Parameters & Trigger Conditions**\n- The payment gateway returns a timeout.\n\n**Processing Logic & Validation Rules**\n- Queue one controlled retry and preserve idempotency.\n\n**Output / System Response**\n- Publish recovery status to operations.\n\n**Exception & Error Handling**\n- Escalate repeated failures to the exception queue." },
+  {
+    id: "fixture-1",
+    requirement: "Payment approval",
+    markdown:
+      "# Functional Requirements\n\n### FR-01 Payment approval\n\n**Input Parameters & Trigger Conditions**\n- A payment instruction is submitted above the approval threshold.\n\n**Processing Logic & Validation Rules**\n- Verify maker/checker segregation and approval limit.\n\n**Output / System Response**\n- Record approval status and audit reference.\n\n**Exception & Error Handling**\n- Reject duplicate approval attempts.",
+  },
+  {
+    id: "fixture-2",
+    requirement: "Gateway recovery",
+    markdown:
+      "# Functional Requirements\n\n### FR-02 Gateway recovery\n\n**Input Parameters & Trigger Conditions**\n- The payment gateway returns a timeout.\n\n**Processing Logic & Validation Rules**\n- Queue one controlled retry and preserve idempotency.\n\n**Output / System Response**\n- Publish recovery status to operations.\n\n**Exception & Error Handling**\n- Escalate repeated failures to the exception queue.",
+  },
 ];
-const generatedAppendWithDocumentControls = "# MANDATORY SECTION 1: COVER PAGE\n\nGenerated cover content that must not be appended.\n\n## Distribution & Sign-off Table\n\n| Name | Role Type |\n| --- | --- |\n| Generated Duplicate | Approver |\n\n## Functional Requirements\n\n### FR-02 Gateway recovery\n\n**Input Parameters & Trigger Conditions**\n- The payment gateway returns a timeout.\n\n**Processing Logic & Validation Rules**\n- Queue one controlled retry and preserve idempotency.\n\n**Output / System Response**\n- Publish recovery status to operations.\n\n**Exception & Error Handling**\n- Escalate repeated failures to the exception queue.";
+const generatedAppendWithDocumentControls =
+  "# MANDATORY SECTION 1: COVER PAGE\n\nGenerated cover content that must not be appended.\n\n## Distribution & Sign-off Table\n\n| Name | Role Type |\n| --- | --- |\n| Generated Duplicate | Approver |\n\n## Functional Requirements\n\n### FR-02 Gateway recovery\n\n**Input Parameters & Trigger Conditions**\n- The payment gateway returns a timeout.\n\n**Processing Logic & Validation Rules**\n- Queue one controlled retry and preserve idempotency.\n\n**Output / System Response**\n- Publish recovery status to operations.\n\n**Exception & Error Handling**\n- Escalate repeated failures to the exception queue.";
 const timeoutRecoveryFixtureQuestions: ClarifyingQuestion[] = [
-  { id: "q1", category: "Business Logic", question: "What high-value threshold requires dual approval?" },
-  { id: "q2", category: "Integration", question: "Which core-banking API contract applies?" },
-  { id: "q3", category: "Scope Boundary", question: "Which payment types are in scope?" },
+  {
+    id: "q1",
+    category: "Business Logic",
+    question: "What high-value threshold requires dual approval?",
+  },
+  {
+    id: "q2",
+    category: "Integration",
+    question: "Which core-banking API contract applies?",
+  },
+  {
+    id: "q3",
+    category: "Scope Boundary",
+    question: "Which payment types are in scope?",
+  },
 ];
-const timeoutRecoveryFixtureAnswers = { q1: "USD 100,000 or local-currency equivalent.", q2: "REST JSON with mutual TLS and OAuth client credentials.", q3: "High-value treasury payment releases only." };
-const timeoutRecoveryFixtureMessage = "OpenRouter generation timed out after a standard and concise retry. Your clarification answers are preserved; retry generation or choose a faster model.";
+const timeoutRecoveryFixtureAnswers = {
+  q1: "USD 100,000 or local-currency equivalent.",
+  q2: "REST JSON with mutual TLS and OAuth client credentials.",
+  q3: "High-value treasury payment releases only.",
+};
+const timeoutRecoveryFixtureMessage =
+  "OpenRouter generation timed out after a standard and concise retry. Your clarification answers are preserved; retry generation or choose a faster model.";
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500"><span>{label}</span><Input value={value} onChange={event => onChange(event.target.value)} className="h-9 border-slate-200 bg-white text-sm font-normal normal-case tracking-normal" /></label>;
+function Field({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-1 text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">
+      <span>{label}</span>
+      <Input
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        className="h-9 border-slate-200 bg-white text-sm font-normal normal-case tracking-normal"
+      />
+    </label>
+  );
 }
 
-function PagedPreview({ markdown, metadata, title }: { markdown: string; metadata: DocumentMetadata; title: string }) {
+function PagedPreview({
+  markdown,
+  metadata,
+  title,
+}: {
+  markdown: string;
+  metadata: DocumentMetadata;
+  title: string;
+}) {
   const requirementPages = splitFunctionalRequirementPages(markdown);
-  return <div className="space-y-8">
-    <section className="flex min-h-[820px] flex-col justify-between bg-white px-8 py-12 shadow-sm sm:px-14" aria-label="Cover Page">
-      <div className="flex justify-between border-b border-slate-200 pb-4"><span className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">MANDATORY SECTION 1</span><span className="text-[10px] font-bold text-slate-400">COVER PAGE</span></div>
-      <div className="my-auto text-center"><p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-[#5b8d87]">Functional Requirement Document</p><h1 className="mt-6 text-4xl font-semibold tracking-tight text-[#112a36]">{title || metadata.enhancementTitle}</h1><p className="mt-4 text-sm text-slate-500">{metadata.region}_{metadata.system}_{metadata.enhancementTitle}</p></div>
-      <dl className="grid gap-3 border-t border-slate-200 pt-5 text-sm sm:grid-cols-2"><div><dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Request / Demand ID</dt><dd className="mt-1 font-semibold">{metadata.requestId}</dd></div><div><dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Revision</dt><dd className="mt-1 font-semibold">{metadata.revisionVersion} · {metadata.revisionDate}</dd></div></dl>
-    </section>
-    <section className="min-h-[820px] bg-white px-8 py-12 shadow-sm sm:px-14" aria-label="Distribution and Sign-off Table">
-      <p className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">MANDATORY SIGN-OFF PAGE</p><h2 className="mt-2 border-b border-slate-200 pb-4 text-2xl font-semibold">Distribution &amp; Sign-off Table</h2><p className="mt-3 text-sm text-slate-500">Controlled distribution list for review, approval, and information purposes.</p>
-      <div className="mt-8 overflow-x-auto"><table className="w-full border-collapse text-left text-xs"><thead><tr className="bg-[#112a36] text-white"><th className="border border-[#112a36] px-3 py-3">Name</th><th className="border border-[#112a36] px-3 py-3">Title</th><th className="border border-[#112a36] px-3 py-3">Department</th><th className="border border-[#112a36] px-3 py-3">Role Type</th></tr></thead><tbody>{metadata.distributionList.map(entry => <tr key={entry.id} className="odd:bg-slate-50"><td className="border border-slate-200 px-3 py-3">{entry.name || "—"}</td><td className="border border-slate-200 px-3 py-3">{entry.title || "—"}</td><td className="border border-slate-200 px-3 py-3">{entry.department}</td><td className="border border-slate-200 px-3 py-3 font-semibold text-[#236b62]">{entry.roleType}</td></tr>)}</tbody></table></div>
-    </section>
-    {(requirementPages.length ? requirementPages : [{ label: "Functional Requirement Document", markdown: "## Revision History\n\nThe remaining FRD sections will appear after generation." }]).map((page, index) => <article key={`${page.label}-${index}`} className="min-h-[820px] min-w-0 overflow-hidden bg-white px-8 py-10 shadow-sm sm:px-14"><div className="mb-7 flex items-center justify-between border-b border-slate-200 pb-3"><span className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">{page.label.toUpperCase()}</span><span className="text-[10px] font-semibold text-slate-400">FRD CONTENT</span></div><div className="prose prose-slate max-w-none break-words prose-headings:scroll-mt-20 prose-h1:text-3xl prose-h2:text-xl prose-h3:text-base prose-p:text-sm prose-table:block prose-table:max-w-full prose-table:overflow-x-auto prose-th:whitespace-normal prose-td:align-top prose-td:whitespace-normal"><Streamdown>{page.markdown}</Streamdown></div></article>)}
-  </div>;
+  return (
+    <div className="space-y-8">
+      <section
+        className="flex min-h-[820px] flex-col justify-between bg-white px-8 py-12 shadow-sm sm:px-14"
+        aria-label="Cover Page"
+      >
+        <div className="flex justify-between border-b border-slate-200 pb-4">
+          <span className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">
+            MANDATORY SECTION 1
+          </span>
+          <span className="text-[10px] font-bold text-slate-400">
+            COVER PAGE
+          </span>
+        </div>
+        <div className="my-auto text-center">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-[#5b8d87]">
+            Functional Requirement Document
+          </p>
+          <h1 className="mt-6 text-4xl font-semibold tracking-tight text-[#112a36]">
+            {title || metadata.enhancementTitle}
+          </h1>
+          <p className="mt-4 text-sm text-slate-500">
+            {metadata.region}_{metadata.system}_{metadata.enhancementTitle}
+          </p>
+        </div>
+        <dl className="grid gap-3 border-t border-slate-200 pt-5 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Request / Demand ID
+            </dt>
+            <dd className="mt-1 font-semibold">{metadata.requestId}</dd>
+          </div>
+          <div>
+            <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Revision
+            </dt>
+            <dd className="mt-1 font-semibold">
+              {metadata.revisionVersion} · {metadata.revisionDate}
+            </dd>
+          </div>
+        </dl>
+      </section>
+      <section
+        className="min-h-[820px] bg-white px-8 py-12 shadow-sm sm:px-14"
+        aria-label="Distribution and Sign-off Table"
+      >
+        <p className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">
+          MANDATORY SIGN-OFF PAGE
+        </p>
+        <h2 className="mt-2 border-b border-slate-200 pb-4 text-2xl font-semibold">
+          Distribution &amp; Sign-off Table
+        </h2>
+        <p className="mt-3 text-sm text-slate-500">
+          Controlled distribution list for review, approval, and information
+          purposes.
+        </p>
+        <div className="mt-8 overflow-x-auto">
+          <table className="w-full border-collapse text-left text-xs">
+            <thead>
+              <tr className="bg-[#112a36] text-white">
+                <th className="border border-[#112a36] px-3 py-3">Name</th>
+                <th className="border border-[#112a36] px-3 py-3">Title</th>
+                <th className="border border-[#112a36] px-3 py-3">
+                  Department
+                </th>
+                <th className="border border-[#112a36] px-3 py-3">Role Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              {metadata.distributionList.map(entry => (
+                <tr key={entry.id} className="odd:bg-slate-50">
+                  <td className="border border-slate-200 px-3 py-3">
+                    {entry.name || "—"}
+                  </td>
+                  <td className="border border-slate-200 px-3 py-3">
+                    {entry.title || "—"}
+                  </td>
+                  <td className="border border-slate-200 px-3 py-3">
+                    {entry.department}
+                  </td>
+                  <td className="border border-slate-200 px-3 py-3 font-semibold text-[#236b62]">
+                    {entry.roleType}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {(requirementPages.length
+        ? requirementPages
+        : [
+            {
+              label: "Functional Requirement Document",
+              markdown:
+                "## Revision History\n\nThe remaining FRD sections will appear after generation.",
+            },
+          ]
+      ).map((page, index) => (
+        <article
+          key={`${page.label}-${index}`}
+          className="min-h-[820px] min-w-0 overflow-hidden bg-white px-8 py-10 shadow-sm sm:px-14"
+        >
+          <div className="mb-7 flex items-center justify-between border-b border-slate-200 pb-3">
+            <span className="font-mono text-[10px] font-bold tracking-[.16em] text-[#5b8d87]">
+              {page.label.toUpperCase()}
+            </span>
+            <span className="text-[10px] font-semibold text-slate-400">
+              FRD CONTENT
+            </span>
+          </div>
+          <div className="prose prose-slate max-w-none break-words prose-headings:scroll-mt-20 prose-h1:text-3xl prose-h2:text-xl prose-h3:text-base prose-p:text-sm prose-table:block prose-table:max-w-full prose-table:overflow-x-auto prose-th:whitespace-normal prose-td:align-top prose-td:whitespace-normal">
+            <Streamdown>{page.markdown}</Streamdown>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
 }
 
 export default function Home() {
-  const showMultiItemFixture = import.meta.env.DEV && new URLSearchParams(window.location.search).get("preview_fixture") === "multi-item";
-  const showSavedEditFixture = showMultiItemFixture && new URLSearchParams(window.location.search).get("edit_fixture") === "saved";
-  const showGeneratedAppendControlFixture = showMultiItemFixture && new URLSearchParams(window.location.search).get("append_fixture") === "document-controls";
-  const showTimeoutRecoveryFixture = import.meta.env.DEV && new URLSearchParams(window.location.search).get("recovery_fixture") === "timeout";
-  const fixtureRequirementItems = showMultiItemFixture ? (() => {
-    const appended = showGeneratedAppendControlFixture ? updateGeneratedRequirementItem(multiItemPreviewFixture, "fixture-2", generatedAppendWithDocumentControls) : multiItemPreviewFixture;
-    return showSavedEditFixture ? updateGeneratedRequirementItem(appended, "fixture-1", appended[0].markdown.replace("Record approval status and audit reference.", "Record the revised approval status, audit reference, and approver identifier.")) : appended;
-  })() : [];
-  const [status, setStatus] = useState<WorkflowStatus>(showTimeoutRecoveryFixture ? "Clarifying" : "Idle");
+  const showMultiItemFixture =
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get("preview_fixture") ===
+      "multi-item";
+  const showSavedEditFixture =
+    showMultiItemFixture &&
+    new URLSearchParams(window.location.search).get("edit_fixture") === "saved";
+  const showGeneratedAppendControlFixture =
+    showMultiItemFixture &&
+    new URLSearchParams(window.location.search).get("append_fixture") ===
+      "document-controls";
+  const showTimeoutRecoveryFixture =
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get("recovery_fixture") ===
+      "timeout";
+  const fixtureRequirementItems = showMultiItemFixture
+    ? (() => {
+        const appended = showGeneratedAppendControlFixture
+          ? updateGeneratedRequirementItem(
+              multiItemPreviewFixture,
+              "fixture-2",
+              generatedAppendWithDocumentControls
+            )
+          : multiItemPreviewFixture;
+        return showSavedEditFixture
+          ? updateGeneratedRequirementItem(
+              appended,
+              "fixture-1",
+              appended[0].markdown.replace(
+                "Record approval status and audit reference.",
+                "Record the revised approval status, audit reference, and approver identifier."
+              )
+            )
+          : appended;
+      })()
+    : [];
+  const [status, setStatus] = useState<WorkflowStatus>(
+    showTimeoutRecoveryFixture ? "Clarifying" : "Idle"
+  );
   const [title, setTitle] = useState("Payment Workflow Enhancement");
-  const [requirement, setRequirement] = useState(showTimeoutRecoveryFixture ? "Build a controlled high-value payment release workflow with dual approval, idempotency, and immutable audit events." : "");
+  const [requirement, setRequirement] = useState(
+    showTimeoutRecoveryFixture
+      ? "Build a controlled high-value payment release workflow with dual approval, idempotency, and immutable audit events."
+      : ""
+  );
   const [profile, setProfile] = useState("banking-treasury");
   const [model, setModel] = useState("deepseek/deepseek-v4-pro-0813");
   const [apiKeyOverride, setApiKeyOverride] = useState("");
   const [customGuidelines, setCustomGuidelines] = useState("");
   const [metadata, setMetadata] = useState<DocumentMetadata>(defaultMetadata);
-  const [questions, setQuestions] = useState<ClarifyingQuestion[]>(showTimeoutRecoveryFixture ? timeoutRecoveryFixtureQuestions : []);
-  const [answers, setAnswers] = useState<Record<string, string>>(showTimeoutRecoveryFixture ? timeoutRecoveryFixtureAnswers : {});
-  const [gapSummary, setGapSummary] = useState(showTimeoutRecoveryFixture ? "A generation timeout was recovered without losing the completed clarification answers." : "");
-  const [markdown, setMarkdown] = useState(() => showMultiItemFixture ? composeRequirementDocument(fixtureRequirementItems) : initialMarkdown);
-  const [requirementItems, setRequirementItems] = useState<GeneratedRequirementItem[]>(() => fixtureRequirementItems);
+  const [questions, setQuestions] = useState<ClarifyingQuestion[]>(
+    showTimeoutRecoveryFixture ? timeoutRecoveryFixtureQuestions : []
+  );
+  const [answers, setAnswers] = useState<Record<string, string>>(
+    showTimeoutRecoveryFixture ? timeoutRecoveryFixtureAnswers : {}
+  );
+  const [gapSummary, setGapSummary] = useState(
+    showTimeoutRecoveryFixture
+      ? "A generation timeout was recovered without losing the completed clarification answers."
+      : ""
+  );
+  const [markdown, setMarkdown] = useState(() =>
+    showMultiItemFixture
+      ? composeRequirementDocument(fixtureRequirementItems)
+      : initialMarkdown
+  );
+  const [requirementItems, setRequirementItems] = useState<
+    GeneratedRequirementItem[]
+  >(() => fixtureRequirementItems);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemDraft, setItemDraft] = useState("");
-  const [retainedAnalyses, setRetainedAnalyses] = useState<RetainedAnalysis[]>([]);
+  const [retainedAnalyses, setRetainedAnalyses] = useState<RetainedAnalysis[]>(
+    []
+  );
   const [tab, setTab] = useState("preview");
-  const [generationRecovery, setGenerationRecovery] = useState<string | null>(showTimeoutRecoveryFixture ? timeoutRecoveryFixtureMessage : null);
+  const [generationRecovery, setGenerationRecovery] = useState<string | null>(
+    showTimeoutRecoveryFixture ? timeoutRecoveryFixtureMessage : null
+  );
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const analyze = trpc.reqToFrd.analyze.useMutation();
   const generate = trpc.reqToFrd.generate.useMutation();
   const modelsQuery = trpc.reqToFrd.models.useQuery();
-  const diagnosticsQuery = trpc.reqToFrd.diagnostics.useQuery(undefined, { refetchInterval: 15_000 });
+  const diagnosticsQuery = trpc.reqToFrd.diagnostics.useQuery(undefined, {
+    refetchInterval: 15_000,
+  });
   const probeModel = trpc.reqToFrd.probe.useMutation();
-  const selectedProfile = formattingProfiles.find(item => item.id === profile) ?? formattingProfiles[2];
-  const renderedMarkdown = useMemo(() => composeRequirementDocument(requirementItems, markdown), [requirementItems, markdown]);
-  const audit = useMemo(() => auditMarkdown(renderedMarkdown, metadata), [renderedMarkdown, metadata]);
-  const normalizedQuestions = useMemo(() => normalizeClarifyingQuestions(questions), [questions]);
-  const updateMetadata = (key: keyof Omit<DocumentMetadata, "distributionList">, value: string) => setMetadata(current => ({ ...current, [key]: value }));
-  const updateParticipant = (id: string, key: keyof DistributionListEntry, value: string) => setMetadata(current => ({ ...current, distributionList: updateDistributionEntry(current.distributionList, id, key, value) }));
-  const addRequirementItem = () => { setRetainedAnalyses(current => retainAnalysis(current, { id: `analysis-${Date.now()}`, requirement, gapSummary, questions, answers })); const next = beginNewRequirementCycle(metadata); abortRef.current?.abort(); setStatus("Idle"); setRequirement(next.requirement); setQuestions(next.questions); setAnswers(next.answers); setGapSummary(""); setGenerationRecovery(null); setTab("preview"); toast.success("Prior analysis is retained below. Ready to add another requirement item."); };
-  const startNewDocument = () => { const next = createFreshDocumentState(); abortRef.current?.abort(); setStatus("Idle"); setTitle(next.title); setRequirement(next.requirement); setQuestions(next.questions); setAnswers(next.answers); setGapSummary(""); setGenerationRecovery(null); setMetadata(next.metadata); setRequirementItems([]); setRetainedAnalyses([]); setMarkdown(next.markdown); setTab("preview"); toast.success("New Functional Requirement Document started."); };
-  const analyzeRequirement = async () => { if (requirement.trim().length < 20) return toast.error("Add more requirement detail first."); setGenerationRecovery(null); setStatus("Clarifying"); try { const result = await analyze.mutateAsync({ requirement, templateId: "enterprise-audit-frd", formattingProfile: selectedProfile.label, customGuidelines, documentTitle: title, model, openRouterApiKey: apiKeyOverride || undefined, metadata }); setQuestions(normalizeClarifyingQuestions(result.questions)); setGapSummary(result.gap_summary); setAnswers({}); diagnosticsQuery.refetch(); } catch (error) { setStatus("Idle"); toast.error(error instanceof Error ? error.message : "Clarification failed."); } };
-  const generateFrd = async () => { if (normalizedQuestions.length < 3) return toast.error("Complete clarification first."); const previousMarkdown = composeRequirementDocument(requirementItems); const itemNumber = requirementItems.length + 1; abortRef.current?.abort(); abortRef.current = new AbortController(); setGenerationRecovery(null); setStatus("Generating"); setTab("preview"); try { const result = await generate.mutateAsync({ requirement, templateId: "enterprise-audit-frd", formattingProfile: selectedProfile.label, customGuidelines, documentTitle: title, model, openRouterApiKey: apiKeyOverride || undefined, metadata, questions: normalizedQuestions, answers, generationScope: itemNumber === 1 ? "document" : "requirement-item", itemNumber }); for (let index = 0; index < result.markdown.length; index += 90) { if (abortRef.current.signal.aborted) throw new DOMException("Cancelled", "AbortError"); await new Promise(resolve => window.setTimeout(resolve, 12)); setMarkdown(composeRequirementMarkdown(previousMarkdown, result.markdown.slice(0, index + 90), itemNumber)); } const nextItem = { id: `req-${Date.now()}`, requirement, markdown: normalizeRequirementItemMarkdown(result.markdown) }; const completedDocument = composeRequirementDocument([...requirementItems, nextItem]); setRequirementItems(current => [...current, nextItem]); setMarkdown(completedDocument); setStatus("Completed"); diagnosticsQuery.refetch(); } catch (error) { if (error instanceof DOMException) return; const message = error instanceof Error ? error.message : "Generation failed."; setStatus("Clarifying"); setGenerationRecovery(message); toast.error(message); } };
-  const startItemEdit = (item: GeneratedRequirementItem) => { setEditingItemId(item.id); setItemDraft(item.markdown); setTab("preview"); };
-  const saveItemEdit = () => { if (!editingItemId || !itemDraft.trim()) return toast.error("Functional requirement content cannot be empty."); const updated = updateGeneratedRequirementItem(requirementItems, editingItemId, itemDraft.trim()); setRequirementItems(updated); setMarkdown(composeRequirementDocument(updated)); setEditingItemId(null); setItemDraft(""); setTab("preview"); toast.success("Functional requirement updated in the FRD preview."); };
+  const selectedProfile =
+    formattingProfiles.find(item => item.id === profile) ??
+    formattingProfiles[2];
+  const renderedMarkdown = useMemo(
+    () => composeRequirementDocument(requirementItems, markdown),
+    [requirementItems, markdown]
+  );
+  const audit = useMemo(
+    () => auditMarkdown(renderedMarkdown, metadata),
+    [renderedMarkdown, metadata]
+  );
+  const normalizedQuestions = useMemo(
+    () => normalizeClarifyingQuestions(questions),
+    [questions]
+  );
+  const updateMetadata = (
+    key: keyof Omit<DocumentMetadata, "distributionList">,
+    value: string
+  ) => setMetadata(current => ({ ...current, [key]: value }));
+  const updateParticipant = (
+    id: string,
+    key: keyof DistributionListEntry,
+    value: string
+  ) =>
+    setMetadata(current => ({
+      ...current,
+      distributionList: updateDistributionEntry(
+        current.distributionList,
+        id,
+        key,
+        value
+      ),
+    }));
+  const addRequirementItem = () => {
+    setRetainedAnalyses(current =>
+      retainAnalysis(current, {
+        id: `analysis-${Date.now()}`,
+        requirement,
+        gapSummary,
+        questions,
+        answers,
+      })
+    );
+    const next = beginNewRequirementCycle(metadata);
+    abortRef.current?.abort();
+    setStatus("Idle");
+    setRequirement(next.requirement);
+    setQuestions(next.questions);
+    setAnswers(next.answers);
+    setGapSummary("");
+    setGenerationRecovery(null);
+    setTab("preview");
+    toast.success(
+      "Prior analysis is retained below. Ready to add another requirement item."
+    );
+  };
+  const startNewDocument = () => {
+    const next = createFreshDocumentState();
+    abortRef.current?.abort();
+    setStatus("Idle");
+    setTitle(next.title);
+    setRequirement(next.requirement);
+    setQuestions(next.questions);
+    setAnswers(next.answers);
+    setGapSummary("");
+    setGenerationRecovery(null);
+    setMetadata(next.metadata);
+    setRequirementItems([]);
+    setRetainedAnalyses([]);
+    setMarkdown(next.markdown);
+    setTab("preview");
+    toast.success("New Functional Requirement Document started.");
+  };
+  const analyzeRequirement = async () => {
+    if (requirement.trim().length < 20)
+      return toast.error("Add more requirement detail first.");
+    setGenerationRecovery(null);
+    setStatus("Clarifying");
+    try {
+      const result = await analyze.mutateAsync({
+        requirement,
+        templateId: "enterprise-audit-frd",
+        formattingProfile: selectedProfile.label,
+        customGuidelines,
+        documentTitle: title,
+        model,
+        openRouterApiKey: apiKeyOverride || undefined,
+        metadata,
+      });
+      setQuestions(normalizeClarifyingQuestions(result.questions));
+      setGapSummary(result.gap_summary);
+      setAnswers({});
+      diagnosticsQuery.refetch();
+    } catch (error) {
+      setStatus("Idle");
+      toast.error(
+        error instanceof Error ? error.message : "Clarification failed."
+      );
+    }
+  };
+  const generateFrd = async () => {
+    if (normalizedQuestions.length < 3)
+      return toast.error("Complete clarification first.");
+    const previousMarkdown = composeRequirementDocument(requirementItems);
+    const itemNumber = requirementItems.length + 1;
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    setGenerationRecovery(null);
+    setStatus("Generating");
+    setTab("preview");
+    try {
+      const result = await generate.mutateAsync({
+        requirement,
+        templateId: "enterprise-audit-frd",
+        formattingProfile: selectedProfile.label,
+        customGuidelines,
+        documentTitle: title,
+        model,
+        openRouterApiKey: apiKeyOverride || undefined,
+        metadata,
+        questions: normalizedQuestions,
+        answers,
+        generationScope: itemNumber === 1 ? "document" : "requirement-item",
+        itemNumber,
+      });
+      for (let index = 0; index < result.markdown.length; index += 90) {
+        if (abortRef.current.signal.aborted)
+          throw new DOMException("Cancelled", "AbortError");
+        await new Promise(resolve => window.setTimeout(resolve, 12));
+        setMarkdown(
+          composeRequirementMarkdown(
+            previousMarkdown,
+            result.markdown.slice(0, index + 90),
+            itemNumber
+          )
+        );
+      }
+      const nextItem = {
+        id: `req-${Date.now()}`,
+        requirement,
+        markdown: normalizeRequirementItemMarkdown(result.markdown),
+      };
+      const completedDocument = composeRequirementDocument([
+        ...requirementItems,
+        nextItem,
+      ]);
+      setRequirementItems(current => [...current, nextItem]);
+      setMarkdown(completedDocument);
+      setStatus("Completed");
+      diagnosticsQuery.refetch();
+    } catch (error) {
+      if (error instanceof DOMException) return;
+      const message =
+        error instanceof Error ? error.message : "Generation failed.";
+      setStatus("Clarifying");
+      setGenerationRecovery(message);
+      toast.error(message);
+    }
+  };
+  const startItemEdit = (item: GeneratedRequirementItem) => {
+    setEditingItemId(item.id);
+    setItemDraft(item.markdown);
+    setTab("preview");
+  };
+  const saveItemEdit = () => {
+    if (!editingItemId || !itemDraft.trim())
+      return toast.error("Functional requirement content cannot be empty.");
+    const updated = updateGeneratedRequirementItem(
+      requirementItems,
+      editingItemId,
+      itemDraft.trim()
+    );
+    setRequirementItems(updated);
+    setMarkdown(composeRequirementDocument(updated));
+    setEditingItemId(null);
+    setItemDraft("");
+    setTab("preview");
+    toast.success("Functional requirement updated in the FRD preview.");
+  };
 
-  return <div className="min-h-screen bg-[#edf1f2] text-[#112a36]"><header className="sticky top-0 z-20 flex min-h-[68px] items-center gap-4 border-b border-slate-200 bg-[#f8faf9]/95 px-5 backdrop-blur lg:px-8"><div className="grid size-9 place-items-center rounded-xl bg-[#112a36] text-[#b9f0e6]"><FileText size={18} /></div><div className="font-mono text-[11px] font-bold uppercase tracking-[.18em]">ReqToDoc</div><Input value={title} onChange={event => setTitle(event.target.value)} className="max-w-[280px] flex-1 border-0 bg-transparent font-semibold shadow-none" /><Badge className={statusClass[status]}>{status}</Badge><Button onClick={() => downloadDocx(renderedMarkdown, title, metadata)} className="gap-2 bg-[#112a36] text-white"><Download size={14} /> Export Word</Button></header>
-    <main className="mx-auto grid max-w-[1800px] grid-cols-1 lg:grid-cols-2"><section className="border-r border-slate-200 bg-[#f3f6f5] p-5 lg:p-8"><div className="mx-auto max-w-[680px] space-y-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-mono text-[10px] font-bold uppercase tracking-[.16em] text-[#5b8d87]">Input workspace</p><h1 className="mt-2 text-3xl font-semibold">Shape the requirement.</h1></div><Button variant="outline" onClick={startNewDocument} className="gap-2"><FileText size={14} /> Generate new FRD</Button></div><div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-3"><b className="text-sm">High-level requirement</b><div className="mt-2 flex flex-wrap gap-1.5">{requirementSamples.map(sample => <button key={sample.label} onClick={() => setRequirement(selectRequirementSample(sample.label))} className="rounded-full border border-[#b9e3dc] bg-[#effaf7] px-2.5 py-1 text-[10px] font-semibold text-[#236b62]"><Sparkles size={11} className="mr-1 inline" />{sample.label}</button>)}</div></div><Textarea value={requirement} onChange={event => setRequirement(event.target.value)} className="min-h-36" placeholder="Describe the business problem, users, systems, risks, and expected outcome..." /></div>
-      <Accordion type="multiple" defaultValue={["format", "identifiers", "distribution", "openrouter-connection"]} className="space-y-3"><AccordionItem value="format" className="rounded-2xl border border-slate-200 bg-white px-5"><AccordionTrigger>Formatting & alignment rules</AccordionTrigger><AccordionContent><div className="grid gap-2 sm:grid-cols-2">{formattingProfiles.map(item => <button key={item.id} onClick={() => setProfile(item.id)} className={`rounded-xl border p-3 text-left ${profile === item.id ? "border-[#72cfc0] bg-[#effaf7]" : "border-slate-200"}`}><b className="text-sm">{item.label}</b><p className="mt-1 text-xs text-slate-500">{item.description}</p></button>)}</div>{profile === "custom" && <Textarea value={customGuidelines} onChange={event => setCustomGuidelines(event.target.value)} className="mt-3" placeholder="Custom formatting guidelines" />}</AccordionContent></AccordionItem>
-      <AccordionItem value="identifiers" className="rounded-2xl border border-slate-200 bg-white px-5"><AccordionTrigger>Document identifiers</AccordionTrigger><AccordionContent><div className="grid gap-3 sm:grid-cols-2"><Field label="Request / Demand ID" value={metadata.requestId} onChange={value => updateMetadata("requestId", value)} /><Field label="Region" value={metadata.region} onChange={value => updateMetadata("region", value)} /><Field label="System" value={metadata.system} onChange={value => updateMetadata("system", value)} /><Field label="Enhancement title" value={metadata.enhancementTitle} onChange={value => updateMetadata("enhancementTitle", value)} /></div></AccordionContent></AccordionItem>
-      <AccordionItem value="model-lab" className="rounded-2xl border border-slate-200 bg-white px-5"><AccordionTrigger>OpenRouter Model Lab</AccordionTrigger><AccordionContent><p className="mb-3 text-xs text-slate-500">Candidate models remain unverified until a probe and an end-to-end mapped response succeed. Diagnostics never include API keys, prompts, or model content.</p><div className="flex flex-wrap gap-2"><select aria-label="OpenRouter model" value={model} onChange={event => setModel(event.target.value)} className="h-9 min-w-[220px] rounded-md border border-slate-200 bg-white px-2 text-sm"><option value={modelsQuery.data?.defaultModel ?? "openai/gpt-4o-mini"}>{modelsQuery.data?.defaultModel ?? "openai/gpt-4o-mini"}</option>{modelsQuery.data?.candidates.filter(candidate => candidate !== (modelsQuery.data?.defaultModel ?? "openai/gpt-4o-mini")).map(candidate => <option key={candidate} value={candidate}>{candidate} · candidate</option>)}</select><Button type="button" variant="outline" disabled={probeModel.isPending} onClick={async () => { try { const result = await probeModel.mutateAsync({ model }); toast.success(`Probe mapped successfully in ${result.elapsedMs}ms.`); diagnosticsQuery.refetch(); } catch (error) { toast.error(error instanceof Error ? error.message : "Probe failed."); } }} className="gap-2"><Sparkles size={14} /> {probeModel.isPending ? "Probing…" : "Probe model"}</Button></div><div className="mt-3 rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500"><b className="text-slate-700">Redacted diagnostics:</b> {diagnosticsQuery.data?.requestLifecycle.length ?? 0} lifecycle events; {(diagnosticsQuery.data?.requestLifecycle ?? []).filter(entry => entry.event === "response_mapped").length} mapped successes.</div></AccordionContent></AccordionItem>
-      <AccordionItem value="openrouter-connection" className="rounded-2xl border border-slate-200 bg-white px-5"><AccordionTrigger>OpenRouter connection</AccordionTrigger><AccordionContent><div className="grid gap-3"><div><p className="text-xs font-semibold">Configured project key</p><div className="mt-1 flex items-center gap-2"><Input aria-label="Configured OpenRouter API key mask" type="password" value={modelsQuery.data?.apiKeyConfigured ? "••••••••••••" : "Not configured"} readOnly className="h-9 max-w-[220px] bg-slate-50" /><Badge className={modelsQuery.data?.apiKeyConfigured ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}>{modelsQuery.data?.apiKeyConfigured ? "Configured" : "Missing"}</Badge></div></div><label className="grid gap-1 text-xs font-semibold">Session API key override<Input aria-label="Session-only OpenRouter API key" type="password" value={apiKeyOverride} onChange={event => setApiKeyOverride(event.target.value)} placeholder="sk-or-v1-…" autoComplete="off" className="h-9" /></label><p className="text-[11px] text-slate-500">Optional. A key entered here is sent only with this browser session’s probe and generation requests. It is not persisted, displayed after entry, included in diagnostics, or returned by the server.</p><label className="grid gap-1 text-xs font-semibold">Custom model slug<Input aria-label="Custom OpenRouter model slug" value={model} onChange={event => setModel(event.target.value.trim())} placeholder="provider/model" className="h-9" /></label><p className="text-[11px] text-slate-500">The selected or custom slug is used for the next clarification and FRD generation request.</p></div></AccordionContent></AccordionItem>
-      <AccordionItem value="distribution" className="rounded-2xl border border-slate-200 bg-white px-5"><AccordionTrigger>Distribution list & sign-off</AccordionTrigger><AccordionContent><p className="mb-3 text-xs text-slate-500">Each participant can be assigned as Reviewer, Approver, or Informer.</p><div className="space-y-3">{metadata.distributionList.map((entry, index) => <div key={entry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="mb-2 flex justify-between"><span className="font-mono text-[10px] font-bold">PARTICIPANT {String(index + 1).padStart(2, "0")}</span><Button size="sm" variant="ghost" disabled={metadata.distributionList.length <= 3} onClick={() => setMetadata(current => ({ ...current, distributionList: current.distributionList.filter(item => item.id !== entry.id) }))}><Trash2 size={13} /></Button></div><div className="grid gap-2 sm:grid-cols-2"><select value={entry.department} onChange={event => updateParticipant(entry.id, "department", event.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm"><option>Requestor of Business</option><option>Department Head</option><option>IT Department</option></select><select value={entry.roleType} onChange={event => updateParticipant(entry.id, "roleType", event.target.value)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm"><option>Reviewer</option><option>Approver</option><option>Informer</option></select><Input value={entry.name} onChange={event => updateParticipant(entry.id, "name", event.target.value)} placeholder="Name" /><Input value={entry.title} onChange={event => updateParticipant(entry.id, "title", event.target.value)} placeholder="Title" /></div></div>)}</div><Button variant="outline" onClick={() => setMetadata(current => ({ ...current, distributionList: addDistributionEntry(current.distributionList, `dist-${Date.now()}`) }))} className="mt-3 gap-2"><Plus size={14} /> Add participant</Button></AccordionContent></AccordionItem>
-      <AccordionItem value="revision" className="rounded-2xl border border-slate-200 bg-white px-5"><AccordionTrigger>Revision history</AccordionTrigger><AccordionContent><div className="grid gap-3 sm:grid-cols-2"><Field label="Version" value={metadata.revisionVersion} onChange={value => updateMetadata("revisionVersion", value)} /><Field label="Updated by" value={metadata.updatedBy} onChange={value => updateMetadata("updatedBy", value)} /><Field label="Description" value={metadata.revisionDescription} onChange={value => updateMetadata("revisionDescription", value)} /><Field label="Date DD-MMM-YY" value={metadata.revisionDate} onChange={value => updateMetadata("revisionDate", value.toUpperCase())} /><Field label="Remarks" value={metadata.revisionRemarks} onChange={value => updateMetadata("revisionRemarks", value)} /></div></AccordionContent></AccordionItem></Accordion>
-      {retainedAnalyses.length > 0 && <div className="rounded-2xl border border-[#c9e6df] bg-[#f3fbf8] p-4"><p className="font-mono text-[10px] font-bold tracking-wider text-[#36867a]">RETAINED REQUIREMENT ITEMS</p><div className="mt-3 space-y-2">{retainedAnalyses.map((item, index) => <details key={item.id} className="rounded-lg border border-[#d7ece6] bg-white p-3"><summary className="cursor-pointer text-xs font-semibold">Item {index + 1}: {item.requirement.slice(0, 80)}{item.requirement.length > 80 ? "…" : ""}</summary><p className="mt-2 text-[11px] text-slate-500">{item.gapSummary}</p><ul className="mt-2 space-y-1 text-[11px] text-slate-600">{item.questions.map(question => <li key={question.id}><b>{question.category}:</b> {question.question}<br /><span className="text-slate-400">Answer: {item.answers[question.id] || "Not answered"}</span></li>)}</ul></details>)}</div></div>}
-      {requirementItems.length > 0 && <div className="rounded-2xl border border-[#b9ded6] bg-white p-4"><div className="flex items-center justify-between gap-3"><div><p className="font-mono text-[10px] font-bold tracking-wider text-[#36867a]">RENDERED FUNCTIONAL REQUIREMENTS</p><p className="mt-1 text-xs text-slate-500">Edit a completed item and save to update the combined FRD immediately.</p></div><Badge className="bg-[#effaf7] text-[#236b62]">{requirementItems.length} item{requirementItems.length === 1 ? "" : "s"}</Badge></div><div className="mt-3 space-y-3">{requirementItems.map((item, index) => <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-semibold">Functional Requirement Item {index + 1}</p><p className="text-[11px] text-slate-500">{item.requirement || "Generated requirement"}</p></div><Button size="sm" variant="outline" onClick={() => startItemEdit(item)}><Wand2 size={13} /> Edit item</Button></div>{editingItemId === item.id ? <div className="mt-3"><Textarea aria-label={`Functional Requirement Item ${index + 1} Markdown`} value={itemDraft} onChange={event => setItemDraft(event.target.value)} className="min-h-56 font-mono text-xs" /><div className="mt-2 flex gap-2"><Button size="sm" onClick={saveItemEdit} className="bg-[#112a36] text-white"><Check size={13} /> Save to FRD</Button><Button size="sm" variant="outline" onClick={() => { setEditingItemId(null); setItemDraft(""); }}>Cancel</Button></div></div> : <p className="mt-3 line-clamp-3 whitespace-pre-wrap text-xs text-slate-600">{item.markdown}</p>}</div>)}</div></div>}
-      {generationRecovery && <div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold">Generation needs attention</p><p className="mt-1 text-xs leading-relaxed">{generationRecovery}</p><p className="mt-2 text-[11px] text-amber-800">Your requirement, selected model, questions, and answers remain available. You can retry without starting over.</p></div><Button size="sm" variant="outline" onClick={() => setGenerationRecovery(null)} className="border-amber-300 bg-white text-amber-950">Dismiss</Button></div><Button size="sm" onClick={generateFrd} disabled={status === "Generating"} className="mt-3 bg-[#112a36] text-white"><Wand2 size={13} /> Retry generation</Button></div>}
-      {questions.length > 0 && <div className="rounded-2xl border border-[#e3d5b9] bg-[#fffaf0] p-5"><b className="text-sm">Clarification queue</b><p className="mt-1 text-xs text-[#8e7554]">{gapSummary}</p><div className="mt-3 space-y-3">{questions.map(question => <div key={question.id} className="rounded-xl border border-[#eadfc9] bg-white p-3"><p className="text-[10px] font-bold text-slate-400">{question.category}</p><p className="text-sm">{question.question}</p><Input value={answers[question.id] ?? ""} onChange={event => setAnswers(current => ({ ...current, [question.id]: event.target.value }))} className="mt-2" placeholder="Answer" /></div>)}</div></div>}
-      <div className="flex flex-wrap gap-2"><Button onClick={analyzeRequirement} disabled={status === "Clarifying" || status === "Generating"} className="gap-2 bg-[#112a36] text-white"><Play size={14} /> Analyze & Clarify</Button><Button onClick={generateFrd} disabled={normalizedQuestions.length < 3 || status === "Generating"} variant="outline" className="gap-2"><Wand2 size={14} /> Generate FRD</Button>{(questions.length > 0 || status === "Completed") && <Button onClick={addRequirementItem} variant="outline" className="gap-2"><Plus size={14} /> Add requirement item</Button>}<Button onClick={addRequirementItem} variant="ghost"><RotateCcw size={14} /></Button></div></div></section>
-      <section className="bg-[#e6eceb] p-5 lg:p-8"><div className="mx-auto flex min-h-[720px] max-w-[760px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-[#fafbf9] shadow-xl"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-6 py-4"><div><p className="font-mono text-[10px] font-bold text-[#5b8d87]">DOCUMENT CANVAS</p><h2 className="font-semibold">{title}</h2></div><div className="flex gap-1"><Button size="sm" variant="ghost" onClick={async () => { await navigator.clipboard.writeText(markdown); toast.success("Copied"); }}><Clipboard size={14} /> Copy</Button><Button size="sm" variant="ghost" onClick={() => { setTab("raw"); setTimeout(() => editorRef.current?.focus(), 20); }}><Wand2 size={14} /> Edit</Button><Button size="sm" variant="ghost" onClick={() => downloadDocx(markdown, title, metadata)}><Download size={14} /> Word</Button></div></div><Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col"><TabsList className="border-b border-slate-200 bg-transparent px-4"><TabsTrigger value="preview">Rendered Preview</TabsTrigger><TabsTrigger value="raw">Raw Markdown</TabsTrigger><TabsTrigger value="audit">Audit & Gap Score</TabsTrigger></TabsList><TabsContent value="preview" className="m-0 flex-1 overflow-auto bg-[#edf1f2] p-5 sm:p-8"><PagedPreview markdown={markdown} metadata={metadata} title={title} /></TabsContent><TabsContent value="raw" className="m-0 flex-1 p-6"><Textarea ref={editorRef} value={markdown} onChange={event => setMarkdown(event.target.value)} className="min-h-[540px] font-mono text-xs" /></TabsContent><TabsContent value="audit" className="m-0 flex-1 overflow-auto p-6"><div className="rounded-xl border border-slate-200 bg-slate-50 p-5"><p className="text-3xl font-semibold">{audit.score}<span className="text-base text-slate-400"> / 100</span></p><div className="mt-4 space-y-2">{audit.items.map(item => <div key={item.label} className="rounded-lg border border-slate-200 bg-white p-3 text-xs"><b className={item.passed ? "text-emerald-600" : "text-amber-600"}>{item.passed ? "✓" : "!"} {item.label}</b><p className="mt-1 text-slate-400">{item.detail}</p></div>)}</div></div></TabsContent></Tabs><footer className="flex justify-between border-t border-slate-200 px-6 py-3 text-[10px] text-slate-400"><span><ShieldCheck size={12} className="mr-1 inline" /> Enterprise template v1.0.0</span><span>{status === "Completed" ? "Ready for review" : "Awaiting requirement input"}</span></footer></div></section>
-    </main></div>;
+  return (
+    <div className="min-h-screen bg-[#edf1f2] text-[#112a36]">
+      <header className="sticky top-0 z-20 flex min-h-[68px] items-center gap-4 border-b border-slate-200 bg-[#f8faf9]/95 px-5 backdrop-blur lg:px-8">
+        <div className="grid size-9 place-items-center rounded-xl bg-[#112a36] text-[#b9f0e6]">
+          <FileText size={18} />
+        </div>
+        <div className="font-mono text-[11px] font-bold uppercase tracking-[.18em]">
+          ReqToDoc
+        </div>
+        <Input
+          value={title}
+          onChange={event => setTitle(event.target.value)}
+          className="max-w-[280px] flex-1 border-0 bg-transparent font-semibold shadow-none"
+        />
+        <Badge className={statusClass[status]}>{status}</Badge>
+        <Button
+          onClick={() => downloadDocx(renderedMarkdown, title, metadata)}
+          className="gap-2 bg-[#112a36] text-white"
+        >
+          <Download size={14} /> Export Word
+        </Button>
+      </header>
+      <main className="mx-auto grid max-w-[1800px] grid-cols-1 lg:grid-cols-2">
+        <section className="border-r border-slate-200 bg-[#f3f6f5] p-5 lg:p-8">
+          <div className="mx-auto max-w-[680px] space-y-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[.16em] text-[#5b8d87]">
+                  Input workspace
+                </p>
+                <h1 className="mt-2 text-3xl font-semibold">
+                  Shape the requirement.
+                </h1>
+              </div>
+              <Button
+                variant="outline"
+                onClick={startNewDocument}
+                className="gap-2"
+              >
+                <FileText size={14} /> Generate new FRD
+              </Button>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="mb-3">
+                <b className="text-sm">High-level requirement</b>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {requirementSamples.map(sample => (
+                    <button
+                      key={sample.label}
+                      onClick={() =>
+                        setRequirement(selectRequirementSample(sample.label))
+                      }
+                      className="rounded-full border border-[#b9e3dc] bg-[#effaf7] px-2.5 py-1 text-[10px] font-semibold text-[#236b62]"
+                    >
+                      <Sparkles size={11} className="mr-1 inline" />
+                      {sample.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Textarea
+                value={requirement}
+                onChange={event => setRequirement(event.target.value)}
+                className="min-h-36"
+                placeholder="Describe the business problem, users, systems, risks, and expected outcome..."
+              />
+            </div>
+            <Accordion
+              type="multiple"
+              defaultValue={[
+                "format",
+                "identifiers",
+                "distribution",
+                "openrouter-connection",
+              ]}
+              className="space-y-3"
+            >
+              <AccordionItem
+                value="format"
+                className="rounded-2xl border border-slate-200 bg-white px-5"
+              >
+                <AccordionTrigger>
+                  Formatting & alignment rules
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {formattingProfiles.map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => setProfile(item.id)}
+                        className={`rounded-xl border p-3 text-left ${profile === item.id ? "border-[#72cfc0] bg-[#effaf7]" : "border-slate-200"}`}
+                      >
+                        <b className="text-sm">{item.label}</b>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {item.description}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                  {profile === "custom" && (
+                    <Textarea
+                      value={customGuidelines}
+                      onChange={event =>
+                        setCustomGuidelines(event.target.value)
+                      }
+                      className="mt-3"
+                      placeholder="Custom formatting guidelines"
+                    />
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem
+                value="identifiers"
+                className="rounded-2xl border border-slate-200 bg-white px-5"
+              >
+                <AccordionTrigger>Document identifiers</AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field
+                      label="Request / Demand ID"
+                      value={metadata.requestId}
+                      onChange={value => updateMetadata("requestId", value)}
+                    />
+                    <Field
+                      label="Region"
+                      value={metadata.region}
+                      onChange={value => updateMetadata("region", value)}
+                    />
+                    <Field
+                      label="System"
+                      value={metadata.system}
+                      onChange={value => updateMetadata("system", value)}
+                    />
+                    <Field
+                      label="Enhancement title"
+                      value={metadata.enhancementTitle}
+                      onChange={value =>
+                        updateMetadata("enhancementTitle", value)
+                      }
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem
+                value="model-lab"
+                className="rounded-2xl border border-slate-200 bg-white px-5"
+              >
+                <AccordionTrigger>OpenRouter Model Lab</AccordionTrigger>
+                <AccordionContent>
+                  <p className="mb-3 text-xs text-slate-500">
+                    Candidate models remain unverified until a probe and an
+                    end-to-end mapped response succeed. Diagnostics never
+                    include API keys, prompts, or model content.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      aria-label="OpenRouter model"
+                      value={model}
+                      onChange={event => setModel(event.target.value)}
+                      className="h-9 min-w-[220px] rounded-md border border-slate-200 bg-white px-2 text-sm"
+                    >
+                      <option
+                        value={
+                          modelsQuery.data?.defaultModel ?? "openai/gpt-4o-mini"
+                        }
+                      >
+                        {modelsQuery.data?.defaultModel ?? "openai/gpt-4o-mini"}
+                      </option>
+                      {modelsQuery.data?.candidates
+                        .filter(
+                          candidate =>
+                            candidate !==
+                            (modelsQuery.data?.defaultModel ??
+                              "openai/gpt-4o-mini")
+                        )
+                        .map(candidate => (
+                          <option key={candidate} value={candidate}>
+                            {candidate} · candidate
+                          </option>
+                        ))}
+                    </select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={probeModel.isPending}
+                      onClick={async () => {
+                        try {
+                          const result = await probeModel.mutateAsync({
+                            model,
+                          });
+                          toast.success(
+                            `Probe mapped successfully in ${result.elapsedMs}ms.`
+                          );
+                          diagnosticsQuery.refetch();
+                        } catch (error) {
+                          toast.error(
+                            error instanceof Error
+                              ? error.message
+                              : "Probe failed."
+                          );
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <Sparkles size={14} />{" "}
+                      {probeModel.isPending ? "Probing…" : "Probe model"}
+                    </Button>
+                  </div>
+                  <div className="mt-3 rounded-lg bg-slate-50 p-3 text-[11px] text-slate-500">
+                    <b className="text-slate-700">Redacted diagnostics:</b>{" "}
+                    {diagnosticsQuery.data?.requestLifecycle.length ?? 0}{" "}
+                    lifecycle events;{" "}
+                    {
+                      (diagnosticsQuery.data?.requestLifecycle ?? []).filter(
+                        entry => entry.event === "response_mapped"
+                      ).length
+                    }{" "}
+                    mapped successes.
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem
+                value="openrouter-connection"
+                className="rounded-2xl border border-slate-200 bg-white px-5"
+              >
+                <AccordionTrigger>OpenRouter connection</AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid gap-3">
+                    <div>
+                      <p className="text-xs font-semibold">
+                        Configured project key
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Input
+                          aria-label="Configured OpenRouter API key mask"
+                          type="password"
+                          value={
+                            modelsQuery.data?.apiKeyConfigured
+                              ? "••••••••••••"
+                              : "Not configured"
+                          }
+                          readOnly
+                          className="h-9 max-w-[220px] bg-slate-50"
+                        />
+                        <Badge
+                          className={
+                            modelsQuery.data?.apiKeyConfigured
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-amber-50 text-amber-700"
+                          }
+                        >
+                          {modelsQuery.data?.apiKeyConfigured
+                            ? "Configured"
+                            : "Missing"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <label className="grid gap-1 text-xs font-semibold">
+                      Session API key override
+                      <Input
+                        aria-label="Session-only OpenRouter API key"
+                        type="password"
+                        value={apiKeyOverride}
+                        onChange={event =>
+                          setApiKeyOverride(event.target.value)
+                        }
+                        placeholder="sk-or-v1-…"
+                        autoComplete="off"
+                        className="h-9"
+                      />
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      Optional. A key entered here is sent only with this
+                      browser session’s probe and generation requests. It is not
+                      persisted, displayed after entry, included in diagnostics,
+                      or returned by the server.
+                    </p>
+                    <label className="grid gap-1 text-xs font-semibold">
+                      Custom model slug
+                      <Input
+                        aria-label="Custom OpenRouter model slug"
+                        value={model}
+                        onChange={event => setModel(event.target.value.trim())}
+                        placeholder="provider/model"
+                        className="h-9"
+                      />
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      The selected or custom slug is used for the next
+                      clarification and FRD generation request.
+                    </p>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem
+                value="distribution"
+                className="rounded-2xl border border-slate-200 bg-white px-5"
+              >
+                <AccordionTrigger>
+                  Distribution list & sign-off
+                </AccordionTrigger>
+                <AccordionContent>
+                  <p className="mb-3 text-xs text-slate-500">
+                    Each participant can be assigned as Reviewer, Approver, or
+                    Informer.
+                  </p>
+                  <div className="space-y-3">
+                    {metadata.distributionList.map((entry, index) => (
+                      <div
+                        key={entry.id}
+                        className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                      >
+                        <div className="mb-2 flex justify-between">
+                          <span className="font-mono text-[10px] font-bold">
+                            PARTICIPANT {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={metadata.distributionList.length <= 3}
+                            onClick={() =>
+                              setMetadata(current => ({
+                                ...current,
+                                distributionList:
+                                  current.distributionList.filter(
+                                    item => item.id !== entry.id
+                                  ),
+                              }))
+                            }
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <select
+                            value={entry.department}
+                            onChange={event =>
+                              updateParticipant(
+                                entry.id,
+                                "department",
+                                event.target.value
+                              )
+                            }
+                            className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                          >
+                            <option>Requestor of Business</option>
+                            <option>Department Head</option>
+                            <option>IT Department</option>
+                          </select>
+                          <select
+                            value={entry.roleType}
+                            onChange={event =>
+                              updateParticipant(
+                                entry.id,
+                                "roleType",
+                                event.target.value
+                              )
+                            }
+                            className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm"
+                          >
+                            <option>Reviewer</option>
+                            <option>Approver</option>
+                            <option>Informer</option>
+                          </select>
+                          <Input
+                            value={entry.name}
+                            onChange={event =>
+                              updateParticipant(
+                                entry.id,
+                                "name",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Name"
+                          />
+                          <Input
+                            value={entry.title}
+                            onChange={event =>
+                              updateParticipant(
+                                entry.id,
+                                "title",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Title"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      setMetadata(current => ({
+                        ...current,
+                        distributionList: addDistributionEntry(
+                          current.distributionList,
+                          `dist-${Date.now()}`
+                        ),
+                      }))
+                    }
+                    className="mt-3 gap-2"
+                  >
+                    <Plus size={14} /> Add participant
+                  </Button>
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem
+                value="revision"
+                className="rounded-2xl border border-slate-200 bg-white px-5"
+              >
+                <AccordionTrigger>Revision history</AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field
+                      label="Version"
+                      value={metadata.revisionVersion}
+                      onChange={value =>
+                        updateMetadata("revisionVersion", value)
+                      }
+                    />
+                    <Field
+                      label="Updated by"
+                      value={metadata.updatedBy}
+                      onChange={value => updateMetadata("updatedBy", value)}
+                    />
+                    <Field
+                      label="Description"
+                      value={metadata.revisionDescription}
+                      onChange={value =>
+                        updateMetadata("revisionDescription", value)
+                      }
+                    />
+                    <Field
+                      label="Date DD-MMM-YY"
+                      value={metadata.revisionDate}
+                      onChange={value =>
+                        updateMetadata("revisionDate", value.toUpperCase())
+                      }
+                    />
+                    <Field
+                      label="Remarks"
+                      value={metadata.revisionRemarks}
+                      onChange={value =>
+                        updateMetadata("revisionRemarks", value)
+                      }
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            {retainedAnalyses.length > 0 && (
+              <div className="rounded-2xl border border-[#c9e6df] bg-[#f3fbf8] p-4">
+                <p className="font-mono text-[10px] font-bold tracking-wider text-[#36867a]">
+                  RETAINED REQUIREMENT ITEMS
+                </p>
+                <div className="mt-3 space-y-2">
+                  {retainedAnalyses.map((item, index) => (
+                    <details
+                      key={item.id}
+                      className="rounded-lg border border-[#d7ece6] bg-white p-3"
+                    >
+                      <summary className="cursor-pointer text-xs font-semibold">
+                        Item {index + 1}: {item.requirement.slice(0, 80)}
+                        {item.requirement.length > 80 ? "…" : ""}
+                      </summary>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        {item.gapSummary}
+                      </p>
+                      <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+                        {item.questions.map(question => (
+                          <li key={question.id}>
+                            <b>{question.category}:</b> {question.question}
+                            <br />
+                            <span className="text-slate-400">
+                              Answer:{" "}
+                              {item.answers[question.id] || "Not answered"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
+            {requirementItems.length > 0 && (
+              <div className="rounded-2xl border border-[#b9ded6] bg-white p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-[10px] font-bold tracking-wider text-[#36867a]">
+                      RENDERED FUNCTIONAL REQUIREMENTS
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Edit a completed item and save to update the combined FRD
+                      immediately.
+                    </p>
+                  </div>
+                  <Badge className="bg-[#effaf7] text-[#236b62]">
+                    {requirementItems.length} item
+                    {requirementItems.length === 1 ? "" : "s"}
+                  </Badge>
+                </div>
+                <div className="mt-3 space-y-3">
+                  {requirementItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            Functional Requirement Item {index + 1}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            {item.requirement || "Generated requirement"}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startItemEdit(item)}
+                        >
+                          <Wand2 size={13} /> Edit item
+                        </Button>
+                      </div>
+                      {editingItemId === item.id ? (
+                        <div className="mt-3">
+                          <Textarea
+                            aria-label={`Functional Requirement Item ${index + 1} Markdown`}
+                            value={itemDraft}
+                            onChange={event => setItemDraft(event.target.value)}
+                            className="min-h-56 font-mono text-xs"
+                          />
+                          <div className="mt-2 flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={saveItemEdit}
+                              className="bg-[#112a36] text-white"
+                            >
+                              <Check size={13} /> Save to FRD
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingItemId(null);
+                                setItemDraft("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-3 line-clamp-3 whitespace-pre-wrap text-xs text-slate-600">
+                          {item.markdown}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {generationRecovery && (
+              <div
+                role="alert"
+                className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      Generation needs attention
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed">
+                      {generationRecovery}
+                    </p>
+                    <p className="mt-2 text-[11px] text-amber-800">
+                      Your requirement, selected model, questions, and answers
+                      remain available. You can retry without starting over.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setGenerationRecovery(null)}
+                    className="border-amber-300 bg-white text-amber-950"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={generateFrd}
+                  disabled={status === "Generating"}
+                  className="mt-3 bg-[#112a36] text-white"
+                >
+                  <Wand2 size={13} /> Retry generation
+                </Button>
+              </div>
+            )}
+            {questions.length > 0 && (
+              <div className="rounded-2xl border border-[#e3d5b9] bg-[#fffaf0] p-5">
+                <b className="text-sm">Clarification queue</b>
+                <p className="mt-1 text-xs text-[#8e7554]">{gapSummary}</p>
+                <div className="mt-3 space-y-3">
+                  {questions.map(question => (
+                    <div
+                      key={question.id}
+                      className="rounded-xl border border-[#eadfc9] bg-white p-3"
+                    >
+                      <p className="text-[10px] font-bold text-slate-400">
+                        {question.category}
+                      </p>
+                      <p className="text-sm">{question.question}</p>
+                      <Input
+                        value={answers[question.id] ?? ""}
+                        onChange={event =>
+                          setAnswers(current => ({
+                            ...current,
+                            [question.id]: event.target.value,
+                          }))
+                        }
+                        className="mt-2"
+                        placeholder="Answer"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={analyzeRequirement}
+                disabled={status === "Clarifying" || status === "Generating"}
+                className="gap-2 bg-[#112a36] text-white"
+              >
+                <Play size={14} /> Analyze & Clarify
+              </Button>
+              <Button
+                onClick={generateFrd}
+                disabled={
+                  normalizedQuestions.length < 3 || status === "Generating"
+                }
+                variant="outline"
+                className="gap-2"
+              >
+                <Wand2 size={14} /> Generate FRD
+              </Button>
+              {(questions.length > 0 || status === "Completed") && (
+                <Button
+                  onClick={addRequirementItem}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Plus size={14} /> Add requirement item
+                </Button>
+              )}
+              <Button onClick={addRequirementItem} variant="ghost">
+                <RotateCcw size={14} />
+              </Button>
+            </div>
+          </div>
+        </section>
+        <section className="bg-[#e6eceb] p-5 lg:p-8">
+          <div className="mx-auto flex min-h-[720px] max-w-[760px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-[#fafbf9] shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-6 py-4">
+              <div>
+                <p className="font-mono text-[10px] font-bold text-[#5b8d87]">
+                  DOCUMENT CANVAS
+                </p>
+                <h2 className="font-semibold">{title}</h2>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(markdown);
+                    toast.success("Copied");
+                  }}
+                >
+                  <Clipboard size={14} /> Copy
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setTab("raw");
+                    setTimeout(() => editorRef.current?.focus(), 20);
+                  }}
+                >
+                  <Wand2 size={14} /> Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => downloadDocx(markdown, title, metadata)}
+                >
+                  <Download size={14} /> Word
+                </Button>
+              </div>
+            </div>
+            <Tabs
+              value={tab}
+              onValueChange={setTab}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <TabsList className="border-b border-slate-200 bg-transparent px-4">
+                <TabsTrigger value="preview">Rendered Preview</TabsTrigger>
+                <TabsTrigger value="raw">Raw Markdown</TabsTrigger>
+                <TabsTrigger value="audit">Audit & Gap Score</TabsTrigger>
+              </TabsList>
+              <TabsContent
+                value="preview"
+                className="m-0 flex-1 overflow-auto bg-[#edf1f2] p-5 sm:p-8"
+              >
+                <PagedPreview
+                  markdown={markdown}
+                  metadata={metadata}
+                  title={title}
+                />
+              </TabsContent>
+              <TabsContent value="raw" className="m-0 flex-1 p-6">
+                <Textarea
+                  ref={editorRef}
+                  value={markdown}
+                  onChange={event => setMarkdown(event.target.value)}
+                  className="min-h-[540px] font-mono text-xs"
+                />
+              </TabsContent>
+              <TabsContent
+                value="audit"
+                className="m-0 flex-1 overflow-auto p-6"
+              >
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                  <p className="text-3xl font-semibold">
+                    {audit.score}
+                    <span className="text-base text-slate-400"> / 100</span>
+                  </p>
+                  <div className="mt-4 space-y-2">
+                    {audit.items.map(item => (
+                      <div
+                        key={item.label}
+                        className="rounded-lg border border-slate-200 bg-white p-3 text-xs"
+                      >
+                        <b
+                          className={
+                            item.passed ? "text-emerald-600" : "text-amber-600"
+                          }
+                        >
+                          {item.passed ? "✓" : "!"} {item.label}
+                        </b>
+                        <p className="mt-1 text-slate-400">{item.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+            <footer className="flex justify-between border-t border-slate-200 px-6 py-3 text-[10px] text-slate-400">
+              <span>
+                <ShieldCheck size={12} className="mr-1 inline" /> Enterprise
+                template v1.0.0
+              </span>
+              <span>
+                {status === "Completed"
+                  ? "Ready for review"
+                  : "Awaiting requirement input"}
+              </span>
+            </footer>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
 }

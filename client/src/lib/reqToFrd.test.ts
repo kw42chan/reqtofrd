@@ -3,7 +3,9 @@ import { auditMarkdown, defaultMetadata, sanitizeFilename } from "./reqToFrd";
 
 describe("ReqToFRD audit helpers", () => {
   it("sanitizes document titles into safe docx filenames", () => {
-    expect(sanitizeFilename("Region / Treasury: High-Value Payments")).toBe("Region-Treasury-High-Value-Payments.docx");
+    expect(sanitizeFilename("Region / Treasury: High-Value Payments")).toBe(
+      "Region-Treasury-High-Value-Payments.docx"
+    );
     expect(sanitizeFilename("***")).toBe("req-to-frd.docx");
   });
 
@@ -15,7 +17,15 @@ describe("ReqToFRD audit helpers", () => {
   });
 
   it("flags missing mandatory controls", () => {
-    const report = auditMarkdown("# Draft\n## Functional Requirements", { ...defaultMetadata, revisionDate: "2026-08-13", signOffRoles: { requestor: "Reviewer", departmentHead: "Approver", itDepartment: "Informer" } });
+    const report = auditMarkdown("# Draft\n## Functional Requirements", {
+      ...defaultMetadata,
+      revisionDate: "2026-08-13",
+      signOffRoles: {
+        requestor: "Reviewer",
+        departmentHead: "Approver",
+        itDepartment: "Informer",
+      },
+    });
     expect(report.score).toBeLessThan(60);
     expect(report.gaps).toContain("Add or verify revision history.");
     expect(report.gaps).toContain("Add or verify dd-mmm-yy revision date.");
