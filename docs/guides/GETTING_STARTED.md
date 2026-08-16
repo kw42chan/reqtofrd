@@ -227,7 +227,7 @@ pnpm build
 # Expected: Output in /dist folder, no errors
 
 # Start production server (optional)
-NODE_ENV=production pnpm start
+pnpm start
 # Should start on port 3000 or next available
 ```
 
@@ -269,7 +269,7 @@ pnpm dev:client
 pnpm build
 
 # Start production server
-NODE_ENV=production pnpm start
+pnpm start
 ```
 
 **When to use**: Before shipping, to test minified code
@@ -363,6 +363,22 @@ pnpm test      # All tests (if OPENROUTER_API_KEY set)
 # Or manually specify port:
 PORT=3001 pnpm dev
 ```
+
+### Issue: `pnpm dev` fails with `'NODE_ENV' is not recognized as an internal or external command`
+
+This happens on Windows when pnpm runs scripts via `cmd.exe`, which doesn't understand the POSIX `NODE_ENV=development <command>` inline-env syntax.
+
+```bash
+# Fix: the dev/start scripts use cross-env (added as a devDependency) so
+# NODE_ENV is set the same way on Windows, macOS, and Linux. Make sure
+# dependencies are up to date:
+pnpm install
+
+# Then run normally:
+pnpm dev
+```
+
+If you still see the error, check that `package.json`'s `dev`/`start` scripts are prefixed with `cross-env` (e.g. `cross-env NODE_ENV=development tsx watch ...`).
 
 ### Issue: Database Connection Error
 

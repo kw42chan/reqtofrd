@@ -138,8 +138,8 @@ pnpm test -- --grep "sanitizes"
 # Build for production (Vite client + esbuild server)
 pnpm build
 
-# Start production server (requires NODE_ENV=production)
-NODE_ENV=production pnpm start
+# Start production server (NODE_ENV=production is set via cross-env in the script)
+pnpm start
 ```
 
 ### Database
@@ -316,6 +316,7 @@ pnpm test
 5. **Streaming responses**: Generation uses chunked responses; ensure client-side event handlers drain streams to avoid hangs.
 6. **Bundle size warning**: Main bundle is ~1.7MB. For production, consider code-splitting high-weight dependencies (mermaid, charts) with dynamic import().
 7. **Test API key**: 2 integration tests fail without OPENROUTER_API_KEY, but 37 core tests work without it. Use `pnpm test:quick` for local development.
+8. **Windows shells and `NODE_ENV`**: pnpm runs scripts through `cmd.exe` on Windows, which doesn't understand POSIX `NODE_ENV=development <command>` syntax. The `dev` and `start` scripts use `cross-env` (devDependency) so `NODE_ENV` is set consistently across Windows/macOS/Linux — don't remove it or prefix these scripts with raw `NODE_ENV=...` again.
 
 ## File Structure at a Glance
 
