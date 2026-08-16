@@ -13,18 +13,28 @@ Build a full-stack web application that generates enterprise-grade Functional Re
 - **Input**: High-level requirement text (min 20 characters)
 - **Process**: Send to LLM and receive 3-5 clarification questions organized by category
 - **Categories**: Business Logic, Integration, Scope Boundary, Exception Handling
-- **Output**: Interactive Q&A cards where user can provide answers
+- **Output**: Interactive Q&A cards grouped by category where user can provide answers
+- **Per-category additional input**: Each category card includes an optional "Additional information" textarea for free-form context beyond the AI-generated question
+- **Answer inputs**: Multi-line textarea (no character limit; minimum height 80px, user-resizable) — supports answers well beyond 200 characters
+- **Empty category skipping**: If all answers and additional information for a category are blank, that category is omitted from the FRD generation prompt entirely — no placeholder text is sent to the LLM
 - **Success Criteria**:
   - Questions are generated and displayed within 5 seconds
   - Each question clearly explains what information is needed
-  - User can submit individual answers and modify them
-  - State persists during the session
+  - Questions are grouped by category in the UI
+  - User can provide multi-line answers and additional context per category
+  - Unanswered categories produce no generated content
+  - State (answers and category extras) persists during the session and is retained when cycling to a new requirement item
+  - Clarification is mandatory for every requirement item cycle — starting a new item resets questions and answers, requiring the user to run "Analyze & Clarify" again before generation
 
 ### 2. FRD Generation Module
 
 - **Input**: Requirement + clarification answers + metadata (Request ID, Region, System, etc.)
+- **Mandatory prerequisite**: Generation is gated behind the clarification module for **every** requirement item — first or additional. The "Generate FRD" button is disabled until at least 3 clarifying questions have been produced by the Analyze & Clarify step. When the user starts a new requirement item cycle, the clarification state is reset and must be completed again before generation is available.
 - **Process**: Stream markdown from LLM with mandatory enterprise structure
-- **Output**: Formatted FRD with sections:
+- **Generation scope**:
+  - **First requirement (`document`)**: Generates the complete FRD body — Executive Summary, Revision History, Functional Requirements (FR-01, etc. with subsections), Integration section, Out of Scope section. Cover Page and Distribution & Sign-off Table are rendered by the application from metadata, not by the LLM.
+  - **Additional requirements (`requirement-item`)**: Must also go through clarification before generation. Generates **only** the Functional Requirement section for the new item (FR-NN identifier block and its subsections: Input Parameters, Processing Logic, Output/Response, Exception Handling). The LLM must not emit a Cover Page, Executive Summary, Revision History, Integration section, Out of Scope section, or any other document-level section.
+- **Output**: Formatted FRD with sections (first requirement only):
   - Cover Page (document metadata and sign-off table)
   - Functional Requirements (FR-01, FR-02, etc. with subsections)
   - Integration section with retry/error handling
@@ -33,7 +43,10 @@ Build a full-stack web application that generates enterprise-grade Functional Re
   - Generation starts within 2 seconds
   - Markdown is streamed to client in real-time
   - User can cancel generation mid-stream
-  - Generated document follows template structure exactly
+  - "Generate FRD" is disabled until clarification produces at least 3 questions
+  - Starting a new requirement item cycle resets clarification state, enforcing re-analysis before the next generation
+  - First requirement generates complete document structure
+  - Additional requirements append only the FR section, with no duplicate document-level sections
 
 ### 3. Preview & Editing Module
 

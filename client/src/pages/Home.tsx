@@ -310,6 +310,9 @@ export default function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>(
     showTimeoutRecoveryFixture ? timeoutRecoveryFixtureAnswers : {}
   );
+  const [categoryExtras, setCategoryExtras] = useState<Record<string, string>>(
+    {}
+  );
   const [gapSummary, setGapSummary] = useState(
     showTimeoutRecoveryFixture
       ? "A generation timeout was recovered without losing the completed clarification answers."
@@ -382,6 +385,7 @@ export default function Home() {
         gapSummary,
         questions,
         answers,
+        categoryExtras,
       })
     );
     const next = beginNewRequirementCycle(metadata);
@@ -390,6 +394,7 @@ export default function Home() {
     setRequirement(next.requirement);
     setQuestions(next.questions);
     setAnswers(next.answers);
+    setCategoryExtras({});
     setGapSummary("");
     setGenerationRecovery(null);
     setTab("preview");
@@ -405,6 +410,7 @@ export default function Home() {
     setRequirement(next.requirement);
     setQuestions(next.questions);
     setAnswers(next.answers);
+    setCategoryExtras({});
     setGapSummary("");
     setGenerationRecovery(null);
     setMetadata(next.metadata);
@@ -433,6 +439,7 @@ export default function Home() {
       setQuestions(normalizeClarifyingQuestions(result.questions));
       setGapSummary(result.gap_summary);
       setAnswers({});
+      setCategoryExtras({});
       diagnosticsQuery.refetch();
     } catch (error) {
       setStatus("Idle");
@@ -463,6 +470,7 @@ export default function Home() {
         metadata,
         questions: normalizedQuestions,
         answers,
+        categoryExtras,
         generationScope: itemNumber === 1 ? "document" : "requirement-item",
         itemNumber,
       });
@@ -1001,6 +1009,14 @@ export default function Home() {
                             </span>
                           </li>
                         ))}
+                        {Object.entries(item.categoryExtras ?? {})
+                          .filter(([, v]) => v.trim())
+                          .map(([cat, extra]) => (
+                            <li key={`extra-${cat}`}>
+                              <b>{cat} (additional):</b>{" "}
+                              <span className="text-slate-400">{extra}</span>
+                            </li>
+                          ))}
                       </ul>
                     </details>
                   ))}
@@ -1126,29 +1142,60 @@ export default function Home() {
               <div className="rounded-2xl border border-[#e3d5b9] bg-[#fffaf0] p-5">
                 <b className="text-sm">Clarification queue</b>
                 <p className="mt-1 text-xs text-[#8e7554]">{gapSummary}</p>
-                <div className="mt-3 space-y-3">
-                  {questions.map(question => (
-                    <div
-                      key={question.id}
-                      className="rounded-xl border border-[#eadfc9] bg-white p-3"
-                    >
-                      <p className="text-[10px] font-bold text-slate-400">
-                        {question.category}
-                      </p>
-                      <p className="text-sm">{question.question}</p>
-                      <Input
-                        value={answers[question.id] ?? ""}
-                        onChange={event =>
-                          setAnswers(current => ({
-                            ...current,
-                            [question.id]: event.target.value,
-                          }))
-                        }
-                        className="mt-2"
-                        placeholder="Answer"
-                      />
-                    </div>
-                  ))}
+                <div className="mt-3 space-y-4">
+                  {Array.from(
+                    new Map(
+                      questions.map(q => [q.category, q.category])
+                    ).keys()
+                  ).map(category => {
+                    const categoryQuestions = questions.filter(
+                      q => q.category === category
+                    );
+                    return (
+                      <div
+                        key={category}
+                        className="rounded-xl border border-[#eadfc9] bg-white p-3"
+                      >
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {category}
+                        </p>
+                        <div className="space-y-3">
+                          {categoryQuestions.map(question => (
+                            <div key={question.id}>
+                              <p className="text-sm">{question.question}</p>
+                              <Textarea
+                                value={answers[question.id] ?? ""}
+                                onChange={event =>
+                                  setAnswers(current => ({
+                                    ...current,
+                                    [question.id]: event.target.value,
+                                  }))
+                                }
+                                className="mt-2 min-h-[80px] resize-y"
+                                placeholder="Answer"
+                              />
+                            </div>
+                          ))}
+                          <div>
+                            <p className="text-[11px] text-slate-400">
+                              Additional information
+                            </p>
+                            <Textarea
+                              value={categoryExtras[category] ?? ""}
+                              onChange={event =>
+                                setCategoryExtras(current => ({
+                                  ...current,
+                                  [category]: event.target.value,
+                                }))
+                              }
+                              className="mt-1 min-h-[80px] resize-y"
+                              placeholder="Any extra context or constraints for this category (optional)"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

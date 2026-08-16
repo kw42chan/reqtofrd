@@ -221,6 +221,7 @@ export const appRouter = router({
         commonInput.extend({
           questions: generationQuestionsSchema,
           answers: z.record(z.string(), z.string()),
+          categoryExtras: z.record(z.string(), z.string()).optional(),
           generationScope: z
             .enum(["document", "requirement-item"])
             .default("document"),
@@ -230,9 +231,36 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const generationInstruction =
           input.generationScope === "requirement-item"
-            ? `This is Functional Requirement Item ${input.itemNumber}, appended to an existing FRD session. Generate only the body sections relevant to this new item. Do not emit a Cover Page, MANDATORY SECTION 1, Distribution & Sign-off Table, document title, request metadata, or sign-off participants. Start with the functional requirement content and continue FR numbering without replacing prior items.`
+            ? `This is Functional Requirement Item ${input.itemNumber}, appended to an existing FRD session. Generate ONLY the Functional Requirement section for this new item — the FR-${String(input.itemNumber).padStart(2, "0")} identifier block and its subsections (Input Parameters, Processing Logic, Output/Response, Exception Handling). Do NOT emit a Cover Page, Executive Summary, Revision History, Integration section, Out of Scope section, Distribution & Sign-off Table, document title, or any other document-level section. Start directly with the FR identifier heading and continue numbering from FR-${String(input.itemNumber).padStart(2, "0")}.`
             : "Generate the complete FRD body in Markdown. The application renders the authoritative Cover Page and Distribution & Sign-off Table from controlled metadata, so do not emit either document-control section in your Markdown. Include the remaining mandatory body sections, strict tables where needed, DD-MMM-YY dates, and FR-01 style identifiers.";
-        const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nGENERATION INPUT\nHigh-Level Requirement:\n${input.requirement}\n\nDocument title: ${input.documentTitle}\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) }, null, 2)}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nClarifying Questions and Answers:\n${input.questions.map(q => `${q.id} [${q.category}] ${q.question}\nAnswer: ${input.answers[q.id] || "No answer provided"}`).join("\n\n")}\n\n${generationInstruction}\nDo not add a preamble.`;
+        const categoryExtras = input.categoryExtras ?? {};
+        const seen = new Set<string>();
+        const categories = input.questions
+          .map(q => q.category)
+          .filter(c => (seen.has(c) ? false : (seen.add(c), true)));
+        const categorySections = categories
+          .map(category => {
+            const qs = input.questions.filter(q => q.category === category);
+            const extra = (categoryExtras[category] ?? "").trim();
+            const qLines = qs
+              .map(q => {
+                const answer = (input.answers[q.id] ?? "").trim();
+                return answer
+                  ? `${q.id} ${q.question}\nAnswer: ${answer}`
+                  : null;
+              })
+              .filter(Boolean);
+            if (qLines.length === 0 && !extra) return null;
+            const parts = [`[${category}]`, ...qLines];
+            if (extra) parts.push(`Additional information: ${extra}`);
+            return parts.join("\n");
+          })
+          .filter(Boolean)
+          .join("\n\n");
+        const clarificationBlock =
+          categorySections ||
+          "No clarification answers provided — generate based on the high-level requirement alone.";
+        const prompt = `${ENTERPRISE_AUDIT_FRD_TEMPLATE}\n\nGENERATION INPUT\nHigh-Level Requirement:\n${input.requirement}\n\nDocument title: ${input.documentTitle}\nMetadata:\n${JSON.stringify({ ...input.metadata, revisionDate: strictDate(input.metadata.revisionDate) }, null, 2)}\n\nFormatting profile: ${input.formattingProfile}\nCustom guidelines: ${input.customGuidelines || "None"}\n\nClarifying Questions and Answers:\n${clarificationBlock}\n\n${generationInstruction}\nDo not add a preamble.`;
         const response = await invokeOpenRouter({
           apiKey: input.openRouterApiKey,
           model: input.model,

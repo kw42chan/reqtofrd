@@ -31,6 +31,7 @@ export interface RetainedAnalysis {
   gapSummary: string;
   questions: ClarifyingQuestion[];
   answers: Record<string, string>;
+  categoryExtras: Record<string, string>;
 }
 export interface GeneratedRequirementItem {
   id: string;

@@ -203,9 +203,11 @@ describe("ReqToFRD procedures", () => {
     expect(call?.messages[1]?.content).toContain(
       "Functional Requirement Item 2, appended to an existing FRD session"
     );
-    expect(call?.messages[1]?.content).toContain("Do not emit a Cover Page");
     expect(call?.messages[1]?.content).toContain(
-      "Do not emit a Cover Page, MANDATORY SECTION 1, Distribution & Sign-off Table"
+      "Generate ONLY the Functional Requirement section for this new item"
+    );
+    expect(call?.messages[1]?.content).toContain(
+      "Do NOT emit a Cover Page, Executive Summary, Revision History, Integration section, Out of Scope section"
     );
   });
 
